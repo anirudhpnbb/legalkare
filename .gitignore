@@ -7,3 +7,4 @@ flask_session/
 index.faiss
 metadata.json
 token_ikhanoon
+.env
