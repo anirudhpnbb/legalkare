@@ -291,3 +291,4 @@ try:
         logger.info("No existing FAISS index loaded. Ready to create new embeddings.")
 except Exception as e:
     logger.error(f"Failed to load FAISS index and metadata: {e}")
+
