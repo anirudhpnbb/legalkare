@@ -31,7 +31,6 @@ region_name = os.getenv("REGION")
 aws_access_key_id = os.getenv("S3_ACCESS_KEY_ID")
 aws_secret_access_key=os.getenv("S3_ACCESS_SECRET_TOKEN")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-print(region_name, aws_access_key_id, aws_secret_access_key, "_________________________________")
 s3_client = boto3.client('s3', region_name=region_name, aws_access_key_id=aws_access_key_id,
                          aws_secret_access_key=aws_secret_access_key)
 client = boto3.client('cognito-idp', region_name='ap-south-1')
@@ -40,7 +39,7 @@ CLIENT_SECRET = '59paljt3ut71l3e829272de2rmle6ko06hfgm3vcsv6mpvbj5gj'
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}},
+CORS(app, resources={r"/*": {"origins": "http://localhost:8501"}},
      supports_credentials=True,
      allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Credentials", "Access-Control-Allow-Origin"],
      methods=["GET", "POST", "OPTIONS"])
@@ -56,6 +55,8 @@ db = mongo_client["legalaid"]
 users_collection = db["users"]
 annotations_collection = db["annotations"]
 user_documents_collection = db["user_documents"]
+metadata_collection = db["legal_documents"]
+summary_collection = db["summary"]
 
 # Initialize counter for user IDs
 if not db["counters"].find_one({"_id": "user_id"}):
@@ -387,7 +388,8 @@ def upload_file():
 
 
 
-@profile_bp.route("/my_documents", methods=["GET"])
+@app.route("/my_documents", methods=["GET"])
+@login_required
 def my_documents():
     """
     Return a list of the user's documents from Mongo, with the S3 keys.
@@ -448,48 +450,84 @@ def chat():
 def search_docs():
     """
     Endpoint to search and list documents most relevant to a specific query.
-    Accepts a 'query' string, which can be short or long.
-    Returns documents in order of similarity (descending).
+    Accepts a 'query' string and returns documents in order of similarity,
+    including their summaries if available.
     """
     content = request.json
+    SIMILARITY_THRESHOLD = 0.6
     query = content.get('query')
     if not query:
         return jsonify({"message": "No query provided", "status": "error"}), 400
 
-    # Optional: Let the user specify top_k (how many results to retrieve)
-    top_k = content.get('top_k', 1000)  # default = 10
+    # Let the user specify top_k (how many results to retrieve)
+    top_k = content.get('top_k', 1000)  # default = 1000
 
     try:
         # 'retrieve_documents' returns (top_chunks, top_filenames, top_scores)
         top_chunks, top_filenames, top_scores = retrieve_documents(query, top_k=top_k)
         # 'top_scores' are distances (L2), so smaller = more similar
 
+        # Calculate similarity scores and filter based on threshold
         results = []
         for filename, distance in zip(top_filenames, top_scores):
-            # Convert the distance to a similarity score if you prefer
-            # For example, similarity = 1 / (1 + distance) or something else
-            # Or just keep distance as is, but remember lower is "better"
+            # Convert distance to similarity score
             similarity_score = 1 / (1 + distance)  # Example transformation
 
-            results.append({
-                "filename": filename,
-                "distance": float(distance),
-                "similarity": similarity_score,
-            })
+            if similarity_score >= SIMILARITY_THRESHOLD:
+                results.append({
+                    "filename": filename,
+                    "distance": float(distance),
+                    "similarity": round(similarity_score * 100, 2),
+                })
 
-        # We want them sorted by descending similarity => ascending distance
-        # If they're already in ascending order from retrieve_docs, we can just reverse.
-        # But let's explicitly sort in ascending distance, in case we want to handle ties, etc.
-        results.sort(key=lambda x: x["distance"])  # ascending distance => descending similarity
+        # Sort results by ascending distance (descending similarity)
+        results.sort(key=lambda x: x["distance"])
+
+        if not results:
+            return jsonify({
+                "status": "success",
+                "query": query,
+                "results": []
+            }), 200
+
+        # Bulk fetch document metadata based on filenames
+        filenames = [doc['filename'] for doc in results]
+        metadata_cursor = metadata_collection.find({"filename": {"$in": filenames}})
+        metadata_map = {meta['filename']: meta['_id'] for meta in metadata_cursor}
+
+        # Bulk fetch summaries based on document_ids
+        document_ids = list(metadata_map.values())
+        summaries_cursor = summary_collection.find({"document_id": {"$in": document_ids}})
+        summaries_map = {summ['document_id']: summ for summ in summaries_cursor}
+
+        # Attach summaries to the results
+        for doc in results:
+            filename = doc['filename']
+            document_id = metadata_map.get(filename)
+            if not document_id:
+                # Metadata not found; skip attaching summary
+                doc['summary'] = "Metadata not found."
+                continue
+
+            summary = summaries_map.get(document_id)
+            try:
+                    # Safely extract the summary message
+                    summary_message = summary.get('summary')
+                    doc['summary'] = summary_message
+            except:
+                # Summary not found
+                doc['summary'] = {"status": "failed", "answer": "Summary not available."}
 
         return jsonify({
             "status": "success",
             "query": query,
-            "results": results  # Full list of documents in sorted order
-        })
-    except Exception as e:
-        return jsonify({"message": str(e), "status": "error"}), 500
+            "results": results  # List of documents with summaries
+        }), 200
 
+    except Exception as e:
+        # Log the exception (ensure you have proper logging configured)
+        app.logger.error(f"Error in search_docs: {str(e)}")
+        return jsonify({"message": str(e), "status": "error"}), 500
 
 
 # Optional: Endpoint to clear all data (documents and embeddings)
@@ -511,49 +549,93 @@ def clear_data_endpoint():
     except Exception as e:
         return jsonify({"message": str(e), "status": "error"}), 500
 
+# ... [Other configurations and route definitions] ...
+
 @app.route("/summarise", methods=["POST"])
-@login_required
+@login_required  # Ensure this decorator is applied if required
 def summarise():
     """
     Endpoint to summarize documents. Handles file upload and additional data.
+    Accepts PDF and TXT files.
     """
-    # Check if there is a file in the request
+    # Allowed file extensions
+    ALLOWED_EXTENSIONS = {'pdf', 'txt'}
+
+    # Check if a file is part of the request
     if 'file' not in request.files:
         return jsonify({"message": "No file provided", "status": "error"}), 400
 
     file = request.files['file']
+
+    # Check if the file has a valid filename
     if file.filename == '':
         return jsonify({"message": "No file selected", "status": "error"}), 400
 
-    # Extract text from the file
-    try:
-        text = extract_text_from_pdf(file)
-    except Exception as e:
-        return jsonify({"message": "Failed to process file", "status": "error"}), 500
+    # Secure the filename to prevent directory traversal attacks
+    filename = secure_filename(file.filename)
+    file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
 
-    # Handling non-file form data or JSON data
+    # Validate file extension
+    if file_ext not in ALLOWED_EXTENSIONS:
+        return jsonify(
+            {"message": f"Unsupported file type: .{file_ext}. Allowed types are PDF and TXT.", "status": "error"}), 400
+
+    # Optional: Validate file size (e.g., max 10MB)
+    # MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    # file.seek(0, os.SEEK_END)
+    # file_length = file.tell()
+    # file.seek(0)  # Reset file pointer
+    # if file_length > MAX_FILE_SIZE:
+    #     return jsonify({"message": "File size exceeds the maximum limit of 10MB.", "status": "error"}), 400
+
+    # Extract text based on file type
+    try:
+        if file_ext == 'pdf':
+            text = extract_text_from_pdf(file)
+            if not text.strip():
+                raise ValueError("No text extracted from PDF.")
+        elif file_ext == 'txt':
+            # Read the file content as UTF-8 text
+            text_bytes = file.read()
+            try:
+                text = text_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                return jsonify(
+                    {"message": "Failed to decode TXT file. Ensure it's encoded in UTF-8.", "status": "error"}), 400
+    except Exception as e:
+        return jsonify({"message": f"Error extracting text from file: {str(e)}", "status": "error"}), 500
+
+    # Retrieve the summarization query from form data or JSON
     prompt_for_summary = request.form.get("query")
-    if prompt_for_summary is None:
-        # Try to load it as JSON if not found in form
-        try:
-            data = json.loads(request.data.decode('utf-8'))
-            prompt_for_summary = data.get('query')
-        except json.JSONDecodeError:
-            return jsonify({"message": "Missing or malformed query", "status": "error"}), 400
+    if not prompt_for_summary:
+        # Attempt to parse JSON payload if 'query' not found in form data
+        if request.is_json:
+            data = request.get_json()
+            prompt_for_summary = data.get('query', '')
 
     if not prompt_for_summary:
         return jsonify({"message": "Query for summarization not provided", "status": "error"}), 400
 
-    try:
-        answer = llm_summariser(text, "gpt-4o-mini", prompt_for_summary, remaining_tokens=200000)
-    except Exception as e:
-        return jsonify({"message": str(e), "status": "error"}), 500
+    # Optional: Validate the prompt length
+    MAX_PROMPT_LENGTH = 1000  # Adjust as per model capabilities
+    if len(prompt_for_summary) > MAX_PROMPT_LENGTH:
+        return jsonify(
+            {"message": f"Query exceeds maximum length of {MAX_PROMPT_LENGTH} characters.", "status": "error"}), 400
 
+    # Summarize the extracted text
+    try:
+        # Adjust remaining_tokens as per your model's requirements
+        answer = llm_summariser(text, "gpt-4o-mini", prompt_for_summary, remaining_tokens=2000)
+    except Exception as e:
+        return jsonify({"message": f"Summarization failed: {str(e)}", "status": "error"}), 500
+
+    # Return the summarization result
     return jsonify({
         "status": "success",
         "query": prompt_for_summary,
         "answer": answer.strip()
-    })
+    }), 200
+
 
 app.register_blueprint(profile_bp, url_prefix="/profile")
 

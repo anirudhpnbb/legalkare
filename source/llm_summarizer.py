@@ -25,7 +25,7 @@ def llm_summariser(documents_list, model_name, user_query, remaining_tokens):
         documents = documents_list
 
     # Split large document into smaller parts if necessary
-    max_segment_size = os.getenv("SEGMENT_SIZE")  # Adjust as necessary for model's token capacity
+    max_segment_size = 50000  # Adjust as necessary for model's token capacity
     segments = textwrap.wrap(documents, max_segment_size, break_long_words=False, replace_whitespace=False)
 
     results = []
