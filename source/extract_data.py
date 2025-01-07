@@ -80,4 +80,4 @@ def bulk_download(api_token, query="IPC 302", total_count=10, out_dir="ik_downlo
 if __name__ == "__main__":
     API_TOKEN = os.getenv("SOURCE_DB_TOKEN")
     print(API_TOKEN)
-    bulk_download(API_TOKEN, "IPC 499", total_count=1000)
+    bulk_download(API_TOKEN, "civil procedure code section 10", total_count=300)

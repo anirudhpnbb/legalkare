@@ -12,8 +12,8 @@ from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 import logging
 import time
-from ratelimiter import RateLimiter
 from threading import Lock
+from collections import deque  # For our custom rate limiter
 
 from main import extract_text_from_pdf  # Ensure this import is correct based on your project structure
 from llm_summarizer import llm_summariser
@@ -32,7 +32,7 @@ S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 # MongoDB Configuration
 MONGO_URI = os.getenv("MONGO_CLIENT")  # e.g., mongodb://username:password@host:port/database
 
-# Summarization API Configuration
+# Summarization API Configuration (if using an API endpoint, otherwise we call llm_summariser directly)
 SUMMARIZATION_API_URL = os.getenv("SUMMARIZATION_API_URL", "http://127.0.0.1:5002/summarise")  # Default URL
 
 # Documents Directory
@@ -54,18 +54,34 @@ logging.basicConfig(
     format='%(asctime)s %(levelname)s:%(message)s'
 )
 
-# ---------------------------- Rate Limiter Configuration ---------------------------- #
+# ---------------------------- Custom Rate Limiter ---------------------------- #
+# We'll allow up to 200 calls per 60 seconds.
 
-# Define your rate limits based on your OpenAI API plan
-# Example: 200 requests per minute
 RATE_LIMIT_CALLS = 200
 RATE_LIMIT_PERIOD = 60  # in seconds
 
-# Initialize a lock for thread-safe operations
 rate_limiter_lock = Lock()
+call_timestamps = deque()  # store timestamps of recent calls
 
-# Initialize the rate limiter
-rate_limiter = RateLimiter(max_calls=RATE_LIMIT_CALLS, period=RATE_LIMIT_PERIOD)
+
+def wait_for_slot():
+    """
+    Wait until we have capacity to make another call, respecting
+    RATE_LIMIT_CALLS within RATE_LIMIT_PERIOD seconds.
+    """
+    while True:
+        with rate_limiter_lock:
+            now = time.time()
+            # Remove timestamps older than RATE_LIMIT_PERIOD
+            while call_timestamps and (now - call_timestamps[0]) > RATE_LIMIT_PERIOD:
+                call_timestamps.popleft()
+
+            if len(call_timestamps) < RATE_LIMIT_CALLS:
+                # We have capacity
+                call_timestamps.append(now)
+                return
+        # If over limit, wait and retry
+        time.sleep(1)
 
 
 # ---------------------------- Helper Functions ---------------------------- #
@@ -76,7 +92,6 @@ def allowed_file(filename):
     """
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 
 def init_s3_client():
@@ -163,53 +178,6 @@ def store_metadata(mongo_collection, metadata):
         return None
 
 
-def generate_summary(file_path, file_type):
-    """
-    Generate a summary for a given file using the summarization API.
-    Implements rate limiting and retry with exponential backoff on 429 errors.
-    """
-    prompt_for_summary = "Please summarize the document in 10 to 15 lines."
-
-    @rate_limiter
-    def make_summarization_request():
-        """
-        Inner function to make the summarization API request.
-        """
-        try:
-            with open(file_path, 'rb') as f:
-                files = {'file': (os.path.basename(file_path), f, f'application/{file_type}')}
-                data = {'query': prompt_for_summary}
-                response = requests.post(SUMMARIZATION_API_URL, files=files, data=data, timeout=120)
-                response.raise_for_status()
-                result = response.json()
-                return result
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Request exception for summarizing '{file_path}': {e}")
-            return {"message": f"Summarization failed: {str(e)}", "status": "error"}
-
-    max_retries = 5
-    backoff_factor = 1  # in seconds
-
-    for attempt in range(1, max_retries + 1):
-        result = make_summarization_request()
-        if result.get("status") == "success":
-            logging.info(f"Generated summary for '{file_path}' on attempt {attempt}.")
-            return result.get("answer").strip()
-        elif result.get("status") == "error":
-            error_message = result.get("message", "Unknown error.")
-            if "rate limit" in error_message.lower():
-                # Parse the wait time from the error message if possible
-                wait_time = 2 ** attempt  # Exponential backoff
-                logging.warning(f"Rate limit hit for '{file_path}'. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-            else:
-                # Non-rate limit error, do not retry
-                logging.error(f"Non-rate limit error for '{file_path}': {error_message}")
-                return None
-    logging.error(f"Failed to generate summary for '{file_path}' after {max_retries} attempts.")
-    return None
-
-
 def store_summary(mongo_collection, document_id, summary):
     """
     Store the summary of a document in MongoDB.
@@ -256,13 +224,49 @@ def extract_text_from_txt(file_path):
         return None
 
 
+def summarise_indefinitely(text):
+    """
+    Indefinitely retry summarizing the given text until a 'success' status is returned.
+    Respects the rate limiter for each attempt.
+    """
+    prompt_for_summary = "Please summarise the document in 10 to 15 lines"
+
+    while True:
+        # Rate-limit each attempt
+        wait_for_slot()
+
+        try:
+            # If using a local function llm_summariser (no external call):
+            # answer = llm_summariser(text, "gpt-4o-mini", prompt_for_summary, remaining_tokens=2000)
+            # summary_obj = {"status": "success", "answer": answer.strip()}
+
+            # OR if you're hitting an external API:
+            # files/data approach if needed:
+            # response = requests.post(...)
+
+            # For example, calling local llm_summariser:
+            result = llm_summariser(text, "gpt-4o-mini", prompt_for_summary, remaining_tokens=2000)
+            summary_obj = {
+                "status": "success",
+                "query": prompt_for_summary,
+                "answer": result.strip()
+            }
+
+            if summary_obj.get("status") == "success":
+                return summary_obj
+            else:
+                logging.error("Summarization returned 'error' status, retrying in 30s...")
+                time.sleep(30)
+
+        except Exception as e:
+            logging.error(f"Summarization failed: {e}, retrying in 30s...")
+            time.sleep(30)
+
+
 def process_document(s3_client, mongo_collections, document_path):
     """
-    Process a single document: upload to S3, store metadata, generate summary, and store summary.
-
-    :param s3_client: Initialized boto3 S3 client
-    :param mongo_collections: Tuple containing (metadata_collection, summary_collection)
-    :param document_path: Full path to the document file
+    Process a single document: upload to S3, store metadata, generate summary (retry until success),
+    and store summary.
     """
     metadata_collection, summary_collection = mongo_collections
     filename = os.path.basename(document_path)
@@ -284,7 +288,7 @@ def process_document(s3_client, mongo_collections, document_path):
             f"Skipping '{filename}': File size {file_size} bytes exceeds the maximum limit of {MAX_FILE_SIZE} bytes.")
         return
 
-    # Define S3 key (organize as needed, e.g., by date or category)
+    # Define S3 key
     s3_key = f"documents/{secure_filename(filename)}"
 
     # Upload to S3
@@ -300,7 +304,7 @@ def process_document(s3_client, mongo_collections, document_path):
         "upload_date": datetime.utcnow(),
         "file_size": file_size,
         "file_type": file_ext,
-        "original_path": document_path  # Optional: Store original path if needed
+        "original_path": document_path
     }
 
     # Store metadata in MongoDB
@@ -309,7 +313,7 @@ def process_document(s3_client, mongo_collections, document_path):
         logging.error(f"Failed to store metadata for '{filename}' in MongoDB.")
         return
 
-    # Check if summary already exists and its status
+    # Check if summary already exists
     existing_summary = summary_collection.find_one({"document_id": document_id})
     if existing_summary:
         if existing_summary.get("status") == "success":
@@ -320,11 +324,11 @@ def process_document(s3_client, mongo_collections, document_path):
             logging.info(f"Previous summarization for '{filename}' failed. Attempting to re-summarize.")
             summary_collection.delete_one({"_id": existing_summary["_id"]})
 
-    # Extract text based on file type
+    # Extract text
     if file_ext == 'pdf':
         try:
             text = extract_text_from_pdf(document_path)
-            if not text.strip():
+            if not text or not text.strip():
                 logging.warning(f"No text extracted from PDF file '{filename}'. Skipping summarization.")
                 return
         except Exception as e:
@@ -339,46 +343,17 @@ def process_document(s3_client, mongo_collections, document_path):
         logging.warning(f"Unsupported file extension for '{filename}'. Skipping summarization.")
         return
 
-    # Generate summary with rate limiting and retry mechanism
-    summary = summarise(text)
-    if not summary:
-        logging.error(f"Failed to generate summary for '{filename}'.")
-        summary_to_store = {"message": "Summarization failed.", "status": "error"}
-    else:
-        summary_to_store = summary
+    # Summarize the text (indefinitely retry until success)
+    summary_obj = summarise_indefinitely(text)
 
     # Store summary in MongoDB
-    summary_success = store_summary(summary_collection, document_id, summary_to_store)
+    summary_success = store_summary(summary_collection, document_id, summary_obj)
     if not summary_success:
         logging.error(f"Failed to store summary for '{filename}' in MongoDB.")
         return
 
     logging.info(f"Successfully processed '{filename}'.")
 
-
-def summarise(text):
-    """
-    Endpoint to summarize documents. Handles file upload and additional data.
-    Accepts PDF and TXT files.
-    """
-    # Retrieve the summarization query from form data or JSON
-    prompt_for_summary = "Please summarise the document in 10 to 15 lines"
-    try:
-        # Adjust remaining_tokens as per your model's requirements
-        answer = llm_summariser(text, "gpt-4o-mini", prompt_for_summary, remaining_tokens=2000)
-    except Exception as e:
-        return {"message": f"Summarization failed: {str(e)}", "status": "error"}
-
-    # Return the summarization result
-    return {
-        "status": "success",
-        "query": prompt_for_summary,
-        "answer": answer.strip()
-    }
-
-
-
-# ---------------------------- Main Execution ---------------------------- #
 
 def main():
     """
@@ -428,17 +403,15 @@ def main():
         return
 
     # Define maximum number of worker threads
-    MAX_WORKERS = 5  # Reduced from 10 to mitigate rate limiting
+    MAX_WORKERS = 5  # concurrency
 
     # Use ThreadPoolExecutor for parallel processing
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        # Submit all tasks
         futures = [
             executor.submit(process_document, s3_client, mongo_collections, doc_path)
             for doc_path in all_documents
         ]
 
-        # Use tqdm to display a progress bar
         for future in tqdm(as_completed(futures), total=len(futures), desc="Processing Documents"):
             try:
                 future.result()

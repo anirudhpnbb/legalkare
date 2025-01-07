@@ -50,19 +50,28 @@ def extract_text_from_pdf(file_stream):
         logger.error(f"Error extracting text from PDF: {e}")
         raise e
 
+def extract_text(file_stream, file_type):
+    if file_type == 'application/pdf':
+        return extract_text_from_pdf(file_stream)
+    elif file_type == 'text/plain':
+        try:
+            return file_stream.read().decode('utf-8')
+        except UnicodeDecodeError as e:
+            logger.error(f"Error decoding TXT file: {e}")
+            return ""
+    else:
+        raise ValueError("Unsupported file type for text extraction.")
+
 def chunk_text(text, chunk_size=1000, overlap=100):
-    """
-    Split the text into chunks for more granular embeddings and retrieval.
-    """
+    # Implement your text chunking logic here
     chunks = []
     start = 0
     while start < len(text):
         end = start + chunk_size
-        chunk = text[start:end]
-        chunks.append(chunk.strip())
-        start += (chunk_size - overlap)
-    logger.info(f"Text chunking completed. Total chunks created: {len(chunks)}")
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
     return chunks
+
 
 def add_document_chunks(filename, chunks):
     """
@@ -77,39 +86,60 @@ def add_document_chunks(filename, chunks):
 # Embeddings and FAISS Index Management
 # ============================================
 
-def create_embeddings():
+def create_embeddings(initial=False, new_chunks=None):
     """
     Create embeddings for all documents in document_store and build a FAISS index.
+    If initial=True, it initializes the FAISS index.
+    If new_chunks are provided, it adds embeddings for these chunks to the existing index.
     """
     global index, metadata
 
-    if not document_store:
-        logger.warning("No documents found. Add documents before creating embeddings.")
-        raise ValueError("No documents found. Add documents before creating embeddings.")
-
     try:
-        texts = [doc[1] for doc in document_store]
-        embeddings = model.encode(texts, show_progress_bar=True)
-        embeddings = embeddings.astype('float32')  # FAISS requires float32
+        if initial:
+            if not document_store:
+                logger.warning("No documents found. Add documents before creating embeddings.")
+                raise ValueError("No documents found. Add documents before creating embeddings.")
 
-        logger.info(f"Generated embeddings for {len(embeddings)} chunks.")
+            texts = [doc[1] for doc in document_store]
+            embeddings = model.encode(texts, show_progress_bar=True)
+            embeddings = embeddings.astype('float32')  # FAISS requires float32
 
-        # Initialize FAISS index
-        dimension = embeddings.shape[1]
-        index = faiss.IndexFlatL2(dimension)
-        logger.info(f"Initialized FAISS IndexFlatL2 with dimension {dimension}.")
+            logger.info(f"Generated embeddings for {len(embeddings)} chunks.")
 
-        # Clear old metadata and rebuild it
-        metadata = []
-        for filename, chunk in document_store:
-            metadata.append({"filename": filename, "chunk": chunk})
+            # Initialize FAISS index
+            dimension = embeddings.shape[1]
+            index = faiss.IndexFlatL2(dimension)
+            logger.info(f"Initialized FAISS IndexFlatL2 with dimension {dimension}.")
 
-        # Add embeddings to the FAISS index
-        index.add(embeddings)
-        logger.info(f"FAISS index built with {index.ntotal} vectors.")
+            # Build metadata
+            metadata = [{"filename": doc[0], "chunk": doc[1]} for doc in document_store]
+
+            # Add embeddings to the FAISS index
+            index.add(embeddings)
+            logger.info(f"FAISS index built with {index.ntotal} vectors.")
+
+        elif new_chunks:
+            if index is None:
+                logger.warning("FAISS index not initialized. Initializing now.")
+                create_embeddings(initial=True)
+
+            # Embed only the new chunks
+            texts = [chunk for filename, chunk in new_chunks]
+            embeddings = model.encode(texts, show_progress_bar=True)
+            embeddings = embeddings.astype('float32')
+
+            logger.info(f"Generated embeddings for {len(embeddings)} new chunks.")
+
+            # Add embeddings to the FAISS index
+            index.add(embeddings)
+            logger.info(f"FAISS index now has {index.ntotal} vectors.")
+
+            # Update metadata
+            for (filename, chunk) in new_chunks:
+                metadata.append({"filename": filename, "chunk": chunk})
 
     except Exception as e:
-        logger.error(f"Error creating embeddings and building FAISS index: {e}")
+        logger.error(f"Error in create_embeddings: {e}")
         raise e
 
 def create_query_embedding(query):
@@ -214,7 +244,7 @@ def allowed_file(filename):
     """
     Check if the uploaded file is a PDF.
     """
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf'
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf' or '.' in filename and filename.rsplit('.', 1)[1].lower() == 'txt'
 
 # ============================================
 # Persistence Functions
@@ -245,11 +275,9 @@ def load_index(index_path=INDEX_PATH, metadata_path=METADATA_PATH):
     try:
         if not os.path.exists(index_path) or not os.path.exists(metadata_path):
             logger.info("No existing FAISS index or metadata found. Starting fresh.")
-            print("HERE", "..........................")
             return
 
         index = faiss.read_index(index_path)
-        print(index, "{{{{{{{{{{{{{{{{{{{{")
         logger.info(f"FAISS index loaded from '{index_path}' with {index.ntotal} vectors.")
 
         with open(metadata_path, 'r', encoding='utf-8') as f:

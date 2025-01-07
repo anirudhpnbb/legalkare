@@ -4,17 +4,34 @@ from bs4 import BeautifulSoup
 
 def html_to_text(raw_html: str) -> str:
     """
-    Converts HTML into a clean, plain-text format using Beautiful Soup.
+    Converts HTML into a plain-text format while preserving paragraphs,
+    line breaks, and headings.
     """
     soup = BeautifulSoup(raw_html, "html.parser")
 
-    # Extract the text (separator helps keep some spacing between elements)
-    text = soup.get_text(separator=" ")
+    # Remove script or style elements
+    for element in soup(["script", "style"]):
+        element.decompose()
 
-    # Clean up multiple spaces, newlines, etc.
-    text = re.sub(r"\s+", " ", text).strip()
+    # Convert <br> to line breaks
+    for br in soup.find_all("br"):
+        br.replace_with("\n")
 
-    return text
+    # Convert <p> to double line breaks
+    for p in soup.find_all("p"):
+        p.insert_before("\n")
+        p.append("\n")
+
+    # Convert headings to blank lines before & after
+    for heading in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+        heading.insert_before("\n")
+        heading.append("\n")
+
+    text = soup.get_text()
+
+    # Collapse multiple blank lines
+    text = re.sub(r"\n\s*\n+", "\n\n", text)
+    return text.strip()
 
 def process_html_files(directory_path: str):
     """

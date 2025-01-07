@@ -5,6 +5,4 @@ ik_downloads/
 flask_session/
 /flask_session
 index.faiss
-metadata.json
 token_ikhanoon
-.env

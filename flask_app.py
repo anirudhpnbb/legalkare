@@ -17,10 +17,15 @@ from dotenv import load_dotenv
 from source.main import (
     clear_data, extract_text_from_pdf, retrieve_documents,
     create_embeddings, allowed_file, add_document_chunks,
-    chunk_text, save_index, get_document_text
+    chunk_text, save_index, get_document_text, extract_text
 )
 from source.llm_process import llm_process
 from source.llm_summarizer import llm_summariser
+import logging
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -144,6 +149,26 @@ def send_email(to_address, subject, body_text, body_html=None):
         app.logger.info(f"Email sent to {to_address}! Message ID: {response['MessageId']}")
         return True
 
+def generate_presigned_url(bucket_name, object_key, expiration=3600):
+    """
+    Generate a pre-signed URL to share an S3 object.
+
+    :param bucket_name: Name of the S3 bucket.
+    :param object_key: Key of the S3 object.
+    :param expiration: Time in seconds for the pre-signed URL to remain valid.
+    :return: Pre-signed URL as string. If error, returns None.
+    """
+    try:
+        response = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket_name, 'Key': object_key, 'ResponseContentDisposition': 'inline'},
+            ExpiresIn=expiration
+        )
+    except ClientError as e:
+        print(f"Error generating pre-signed URL: {e}")
+        return None
+
+    return response
 
 
 def get_secret_hash(username):
@@ -285,9 +310,15 @@ def get_profile():
     user_id = session.get("user_id")
     user = users_collection.find_one({"user_id": user_id}, {"_id": 0, "password": 0})
     if user:
+        # Generate pre-signed URL if profile_picture_key exists
+        if user.get("profile_picture_key"):
+            presigned_url = generate_presigned_url(S3_BUCKET_NAME, user["profile_picture_key"])
+            user["profile_picture_url"] = presigned_url
         return jsonify({"status": "success", "profile": user}), 200
     else:
         return jsonify({"status": "error", "message": "User not found"}), 404
+
+
 
 @profile_bp.route("/update_profile", methods=["PUT"])
 @login_required
@@ -296,7 +327,7 @@ def update_profile():
     Update the logged-in user's profile details.
     """
     user_id = session.get("user_id")
-    data = request.json
+    data = request.json  # Assuming JSON payload
 
     # Define allowed fields for update
     allowed_fields = [
@@ -316,27 +347,14 @@ def update_profile():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @profile_bp.route("/update_profile_picture", methods=["POST"])
-@login_required
+@login_required  # Ensure you have this decorator implemented
 def update_profile_picture():
     """
-    Upload a user's profile picture to S3 in the format:
-      "profile_pics/<user_id>_<original_filename>"
-
-    Then store the S3 key/URL in the user's record in MongoDB.
+    Upload a user's profile picture to S3 and update the user's profile with the picture URL.
     """
-    # Check if user is logged in
-    if "access_token" not in session:
-        return jsonify({"message": "Unauthorized", "status": "error"}), 401
-
     user_id = session.get("user_id")
-    if not user_id:
-        return jsonify({"message": "No user ID found in session", "status": "error"}), 401
-
-    user_record = users_collection.find_one({"user_id": user_id})
-    if not user_record:
-        return jsonify({"message": "User not found in Mongo", "status": "error"}), 404
-
     if 'profile_picture' not in request.files:
         return jsonify({"message": "No profile picture file provided", "status": "error"}), 400
 
@@ -358,10 +376,10 @@ def update_profile_picture():
             }
         )
 
-        # Form the public URL
-        s3_url = f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{s3_key}"
+        # Form the public URL (adjust if using pre-signed URLs)
+        s3_url = f"https://{S3_BUCKET_NAME}.s3.{region_name}.amazonaws.com/{s3_key}"
 
-        # Update MongoDB
+        # Update user profile in the database (assuming MongoDB)
         users_collection.update_one(
             {"user_id": user_id},
             {"$set": {
@@ -371,7 +389,7 @@ def update_profile_picture():
         )
 
         return jsonify({
-            "message": "Profile picture updated",
+            "message": "Profile picture updated successfully.",
             "status": "success",
             "profile_picture_url": s3_url
         }), 200
@@ -381,17 +399,42 @@ def update_profile_picture():
     except Exception as e:
         return jsonify({"message": str(e), "status": "error"}), 500
 
+
 @profile_bp.route("/list_lawyers", methods=["GET"])
 @login_required
 def list_lawyers():
-    """
-    Retrieve a list of all registered lawyers.
-    """
     try:
-        lawyers = list(users_collection.find({"role": "lawyer"}, {"_id": 0, "password": 0}))
-        return jsonify({"status": "success", "lawyers": lawyers}), 200
+        lawyers_cursor = users_collection.find({"role": "lawyer"})
+        lawyers_list = []
+
+        for lw in lawyers_cursor:
+            # Convert ObjectId, remove password if needed
+            lw["_id"] = str(lw["_id"])
+            lw.pop("password", None)
+
+            # If there's a stored S3 key, generate a fresh pre-signed URL
+            profile_key = lw.get("profile_picture_key")
+            if profile_key:
+                presigned_url = s3_client.generate_presigned_url(
+                    "get_object",
+                    Params={
+                        "Bucket": S3_BUCKET_NAME,
+                        "Key": profile_key,
+                        "ResponseContentDisposition": "inline"
+                    },
+                    ExpiresIn=3600  # e.g. 1 hour
+                )
+                lw["profile_picture_url"] = presigned_url
+            else:
+                lw["profile_picture_url"] = None
+
+            lawyers_list.append(lw)
+
+        return jsonify({"status": "success", "lawyers": lawyers_list}), 200
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @profile_bp.route("/book_appointment", methods=["POST"])
 @login_required  # Assuming you have a login_required decorator
@@ -536,78 +579,6 @@ def view_appointments():
         return jsonify({"status": "error", "message": f"Failed to retrieve appointments: {str(e)}"}), 500
 
 
-#
-# @profile_bp.route("/update_profile_picture", methods=["POST"])
-# @login_required
-# def update_profile_picture():
-#     """
-#     Upload a user's profile picture to S3 in the format:
-#       "profile_pics/<user_id>_<original_filename>"
-#
-#     Then store the S3 key/URL in the user's record in MongoDB.
-#     """
-#     # Check if user is logged in (Cognito or custom auth)
-#     if "access_token" not in session:
-#         return jsonify({"message": "Unauthorized", "status": "error"}), 401
-#
-#     # We'll assume user_id is stored in session after they log in
-#     user_id = session.get("user_id")
-#     if not user_id:
-#         return jsonify({"message": "No user ID found in session", "status": "error"}), 401
-#
-#     # Query your users_collection to ensure user exists
-#     user_record = users_collection.find_one({"user_id": user_id})
-#     if not user_record:
-#         return jsonify({"message": "User not found in Mongo", "status": "error"}), 404
-#
-#     # Check if file part is in the request
-#     if 'profile_picture' not in request.files:
-#         return jsonify({"message": "No profile picture file provided", "status": "error"}), 400
-#
-#     file = request.files['profile_picture']
-#     if file.filename == '':
-#         return jsonify({"message": "Empty filename", "status": "error"}), 400
-#
-#     # Secure the filename to avoid special chars, etc.
-#     original_name = secure_filename(file.filename)
-#
-#     # This is the key in S3: "profile_pics/<user_id>_<original_name>"
-#     s3_key = f"profile_pics/{user_id}_{original_name}"
-#
-#     try:
-#         # Upload to S3
-#         s3_client.upload_fileobj(
-#             Fileobj=file,
-#             Bucket=S3_BUCKET_NAME,
-#             Key=s3_key,
-#             ExtraArgs={
-#                 "ContentType": file.content_type
-#             }
-#         )
-#
-#         # If you used "public-read", you can form the public URL directly:
-#         s3_url = f"https://{S3_BUCKET_NAME}.s3.amazonaws.com/{s3_key}"
-#
-#         # Update Mongo: store the profile picture URL/key
-#         users_collection.update_one(
-#             {"user_id": user_id},
-#             {"$set": {
-#                 "profile_picture_url": s3_url,
-#                 "profile_picture_key": s3_key
-#             }}
-#         )
-#
-#         return jsonify({
-#             "message": "Profile picture updated",
-#             "status": "success",
-#             "profile_picture_url": s3_url
-#         }), 200
-#
-#     except ClientError as ce:
-#         return jsonify({"message": f"Error uploading to S3: {ce}", "status": "error"}), 500
-#     except Exception as e:
-#         return jsonify({"message": str(e), "status": "error"}), 500
-
 
 @app.route('/add_annotation', methods=['POST'])
 @login_required
@@ -672,66 +643,138 @@ def get_annotations():
 def upload_file():
     user_id = session.get("user_id")
     if not user_id:
+        logger.warning("No user_id in session.")
         return jsonify({"message": "No user_id in session", "status": "error"}), 401
 
+    folder = request.form.get('folder', 'General').strip()
+    if not folder:
+        folder = 'General'
+
+    logger.info(f"User ID: {user_id}, Folder: {folder}")
+
     if 'file' not in request.files:
+        logger.warning("No file part in the request.")
         return jsonify({"message": "No file in request", "status": "error"}), 400
 
     file = request.files['file']
-    if file.filename == '' or not allowed_file(file.filename):
+    logger.info(f"Received file: {file.filename}, Content-Type: {file.content_type}")
+
+    if file.filename == '':
+        logger.warning("Empty filename received.")
+        return jsonify({"message": "Empty filename", "status": "error"}), 400
+
+    if not allowed_file(file.filename):
+        logger.warning(f"Disallowed file extension for file: {file.filename}")
         return jsonify({"message": "Invalid or missing file", "status": "error"}), 400
 
-    from werkzeug.utils import secure_filename
-    import datetime
     original_filename = secure_filename(file.filename)
+    file_extension = original_filename.rsplit('.', 1)[1].lower()
 
-    # 1) Read ALL bytes from the file into memory first
+    # Read all bytes from the file into memory
     file_bytes = file.read()
 
-    # 2) Upload to S3 from memory
-    s3_key = f"docs/{user_id}/{original_filename}"
+    # Define S3 key with folder
+    s3_key = f"docs/{user_id}/{folder}/{original_filename}"
+    logger.info(f"Uploading to S3 with key: {s3_key}")
+
     try:
-        import io
-        file_obj = io.BytesIO(file_bytes)       # create a new BytesIO from bytes
+        # Upload to S3
+        file_obj = io.BytesIO(file_bytes)
         s3_client.upload_fileobj(
             Fileobj=file_obj,
             Bucket=S3_BUCKET_NAME,
             Key=s3_key,
             ExtraArgs={
                 "ContentType": file.content_type
-                # omit "ACL" if bucket disallows ACL
             }
         )
+        logger.info(f"File uploaded to S3: {s3_key}")
+
+        # Store document info in the database
         doc_info = {
             "user_id": user_id,
             "doc_filename": original_filename,
             "s3_key": s3_key,
+            "folder": folder,
             "upload_date": datetime.datetime.utcnow()
         }
         user_documents_collection.insert_one(doc_info)
+        logger.info(f"Document info inserted into DB: {doc_info}")
 
-        # 3) Extract text by passing bytes again
-        # e.g. pass file_bytes directly to your extract_text_from_pdf
-        # if extract_text_from_pdf expects a file-like, wrap file_bytes in BytesIO again
-        file_for_pdf = io.BytesIO(file_bytes)
-        text = extract_text_from_pdf(file_for_pdf)
+        # Extract text based on file type
+        file_for_text = io.BytesIO(file_bytes)
+        text = extract_text(file_for_text, file.content_type)
+        logger.info(f"Extracted text length: {len(text)}")
 
-        # 4) Then chunk, create embeddings, etc.
+        # Chunk the text
         chunks = chunk_text(text, chunk_size=1000, overlap=100)
+        logger.info(f"Generated {len(chunks)} chunks from the document.")
+
+        # Add new chunks to the document store
+        new_chunks = [(original_filename, chunk) for chunk in chunks]
         add_document_chunks(original_filename, chunks)
-        create_embeddings()
+
+        # Create embeddings for the new chunks only
+        create_embeddings(initial=False, new_chunks=new_chunks)
+
+        # Save the updated FAISS index and metadata
         save_index()
 
+        success_message = f"File '{original_filename}' uploaded to folder '{folder}', text extracted."
+        logger.info(success_message)
         return jsonify({
-            "message": f"File '{original_filename}' uploaded, text extracted",
+            "message": success_message,
             "status": "success"
         }), 200
 
     except ClientError as e:
-        return jsonify({"message": f"Error uploading to S3: {e}", "status": "error"}), 500
+        error_message = f"Error uploading to S3: {e}"
+        logger.error(error_message)
+        return jsonify({"message": error_message, "status": "error"}), 500
     except Exception as ex:
-        return jsonify({"message": str(ex), "status": "error"}), 500
+        error_message = f"An unexpected error occurred: {ex}"
+        logger.error(error_message)
+        return jsonify({"message": error_message, "status": "error"}), 500
 
+@app.route('/folders', methods=['GET'])
+@login_required
+def get_folders():
+    user_id = session.get("user_id")
+    if not user_id:
+        logger.warning("No user_id in session for fetching folders.")
+        return jsonify({"message": "No user_id in session", "status": "error"}), 401
+
+    try:
+        # Fetch distinct folders for the user from the database
+        folders = user_documents_collection.distinct("folder", {"user_id": user_id})
+        logger.info(f"Fetched folders for user {user_id}: {folders}")
+        return jsonify({"folders": folders, "status": "success"}), 200
+    except Exception as ex:
+        error_message = f"Error fetching folders: {ex}"
+        logger.error(error_message)
+        return jsonify({"message": error_message, "status": "error"}), 500
+
+@app.route('/my_documents', methods=['GET'])
+@login_required
+def get_my_documents():
+    user_id = session.get("user_id")
+    if not user_id:
+        logger.warning("No user_id in session for fetching documents.")
+        return jsonify({"message": "No user_id in session", "status": "error"}), 401
+
+    try:
+        documents = list(user_documents_collection.find({"user_id": user_id}))
+        # Serialize documents: convert ObjectId and datetime to string
+        for doc in documents:
+            doc["_id"] = str(doc["_id"])
+            if isinstance(doc.get("upload_date"), datetime.datetime):
+                doc["upload_date"] = doc["upload_date"].isoformat()
+        logger.info(f"Fetched {len(documents)} documents for user {user_id}.")
+        return jsonify({"documents": documents, "status": "success"}), 200
+    except Exception as ex:
+        error_message = f"Error fetching documents: {ex}"
+        logger.error(error_message)
+        return jsonify({"message": error_message, "status": "error"}), 500
 
 
 
@@ -878,6 +921,7 @@ def search_docs():
         return jsonify({"message": str(e), "status": "error"}), 500
 
 
+
 # Optional: Endpoint to clear all data (documents and embeddings)
 @app.route('/clear_data', methods=['POST'])
 @login_required
@@ -983,6 +1027,24 @@ def summarise():
         "query": prompt_for_summary,
         "answer": answer.strip()
     }), 200
+
+
+@app.route('/generate_presigned_url', methods=['POST'])
+@login_required
+def generate_presigned_url_route():
+    content = request.json
+    bucket_name = "legalaid-dev"  # Replace with your bucket name
+    object_key = content.get("object_key")
+
+    if not object_key:
+        return jsonify({"message": "Object key is missing", "status": "error"}), 400
+
+    url = generate_presigned_url(bucket_name, object_key)
+    if url:
+        return jsonify({"url": url, "status": "success"}), 200
+    else:
+        return jsonify({"message": "Failed to generate pre-signed URL", "status": "error"}), 500
+
 
 
 @app.route('/serve_document', methods=['GET'])
