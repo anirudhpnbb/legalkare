@@ -312,11 +312,72 @@ def clear_data():
 
 # On module load, attempt to load existing index and metadata
 try:
-    load_index()
-    if index is not None:
-        logger.info("Loaded existing FAISS index and metadata.")
+    load_index()  # sets index, metadata, document_store if they exist
+    if index is not None and index.ntotal > 0:
+        logger.info(f"Loaded existing FAISS index with {index.ntotal} vectors.")
     else:
-        logger.info("No existing FAISS index loaded. Ready to create new embeddings.")
-except Exception as e:
-    logger.error(f"Failed to load FAISS index and metadata: {e}")
+        logger.info("No existing FAISS index loaded or index is empty. Creating new embeddings...")
 
+        # Define the directory where your documents are stored
+        DOCS_FOLDER = os.getenv("DOCS_FOLDER", "docs")
+
+        # Check if the documents folder exists
+        if not os.path.isdir(DOCS_FOLDER):
+            logger.error(f"Documents folder '{DOCS_FOLDER}' does not exist. Please provide a valid path.")
+            raise FileNotFoundError(f"Documents folder '{DOCS_FOLDER}' does not exist.")
+
+        total_documents = 0
+        total_chunks = 0
+
+        # Iterate over all files in the documents folder
+        for filename in os.listdir(DOCS_FOLDER):
+            if allowed_file(filename):
+                file_path = os.path.join(DOCS_FOLDER, filename)
+                logger.info(f"Processing file: {file_path}")
+
+                try:
+                    with open(file_path, 'rb') as f:
+                        if filename.lower().endswith('.pdf'):
+                            text = extract_text_from_pdf(f)
+                        else:
+                            text = extract_text(f, 'text/plain')
+
+                    if not text.strip():
+                        logger.warning(f"No text extracted from '{filename}'. Skipping this file.")
+                        continue
+
+                    # Chunk the extracted text
+                    chunks = chunk_text(text, chunk_size=1000, overlap=100)
+                    num_chunks = len(chunks)
+                    logger.info(f"Generated {num_chunks} chunks from '{filename}'.")
+
+                    if num_chunks == 0:
+                        logger.warning(f"No chunks created for '{filename}'. Skipping.")
+                        continue
+
+                    # Add chunks to the document_store
+                    add_document_chunks(filename, chunks)
+
+                    total_documents += 1
+                    total_chunks += num_chunks
+
+                except Exception as e:
+                    logger.error(f"Failed to process '{filename}': {e}")
+                    continue  # Proceed to the next file
+
+        logger.info(f"Processed {total_documents} documents with a total of {total_chunks} chunks.")
+
+        if not document_store:
+            logger.error("No document chunks were added to the document store. Aborting embedding creation.")
+            raise ValueError("Document store is empty. Ensure that documents are correctly processed and added.")
+
+        # Create embeddings for all chunks in the document_store
+        create_embeddings(initial=True)
+
+        # Save the newly created FAISS index and metadata
+        save_index()
+
+        logger.info("Embeddings created and index saved successfully.")
+
+except Exception as e:
+    logger.error(f"Failed to load or create FAISS index/metadata: {e}")

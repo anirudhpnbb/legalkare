@@ -42,7 +42,7 @@ S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 ses_region_name = os.getenv("AWS_SES_REGION")
 ses_access_key_id = os.getenv("AWS_SES_ACCESS_KEY_ID")
 ses_secret_access_key = os.getenv("AWS_SES_SECRET_ACCESS_KEY")
-AWS_SES_SOURCE_EMAIL = "noreply@anirudhpalaparthi.com"
+AWS_SES_SOURCE_EMAIL = "anirudhpalaparthi@legalkare.com"
 client = boto3.client('cognito-idp', region_name='ap-south-1')
 CLIENT_ID = '1dqp62r33cu2kju8g93dohh4o5'
 CLIENT_SECRET = '59paljt3ut71l3e829272de2rmle6ko06hfgm3vcsv6mpvbj5gj'
@@ -504,7 +504,7 @@ def book_appointment():
 
         You have successfully booked an appointment with {lawyer_name} on {date_str} at {time_slot}.
 
-        Thank you for using LegalAid.
+        Thank you for using LegalKare.
         """
 
         # Email content for lawyer
@@ -516,7 +516,7 @@ def book_appointment():
 
         Please prepare accordingly.
 
-        Thank you for using LegalAid.
+        Thank you for using LegalKare.
         """
 
         # Send email to client
@@ -1033,7 +1033,7 @@ def summarise():
 @login_required
 def generate_presigned_url_route():
     content = request.json
-    bucket_name = "legalaid-dev"  # Replace with your bucket name
+    bucket_name = "LegalKare-dev"  # Replace with your bucket name
     object_key = content.get("object_key")
 
     if not object_key:

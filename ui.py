@@ -79,7 +79,7 @@ tooltip_css = """
 st.markdown(tooltip_css, unsafe_allow_html=True)
 
 # ---------------------------- Sidebar Navigation ---------------------------- #
-st.sidebar.title("AdvoKare")
+st.sidebar.title("LegalKare")
 
 # Define navigation options based on user role
 if st.session_state.logged_in:
@@ -133,9 +133,9 @@ if st.session_state.logged_in:
 
 # Home Page
 if selection == "Home":
-    st.title("Welcome to AdvoKare")
+    st.title("Welcome to LegalKare")
     st.write("""
-    **AdvoKare** is a platform designed to assist lawyers and clients in managing and accessing legal services efficiently.
+    **LegalKare** is a platform designed to assist lawyers and clients in managing and accessing legal services efficiently.
 
     **Features:**
     - User Registration and Authentication
@@ -145,7 +145,7 @@ if selection == "Home":
     - Chat with Legal LLM for Assistance
     - Book Appointments with Lawyers
     """)
-    st.image("https://via.placeholder.com/800x400.png?text=AdvoKare+Platform", use_container_width=True)
+    st.image("https://via.placeholder.com/800x400.png?text=LegalKare+Platform", use_container_width=True)
 
 # Register Page
 elif selection == "Register":
@@ -439,12 +439,17 @@ elif selection == "View Documents":
             st.error(f"An error occurred: {e}")
 
 
-# Search Documents Page
 elif selection == "Search Documents":
     if not st.session_state.logged_in:
         st.warning("Please log in to search documents.")
     else:
         st.title("Search Documents")
+
+        # 1) Let the lawyer select their role for classification matching
+        #    If you want to be more general, rename "Lawyer Role" -> "Which side are you representing?"
+        role_options = ["Defense", "State", "Plaintiff", "Petitioner"]
+        user_role = st.selectbox("Select Your Role", role_options, index=0)
+
         with st.form("search_form"):
             query = st.text_input("Enter your search query")
             top_k = st.number_input("Number of top results", min_value=1, max_value=1000, value=100)
@@ -455,10 +460,13 @@ elif selection == "Search Documents":
                 st.error("Please enter a search query.")
             else:
                 search_data = {"query": query, "top_k": int(top_k)}
+
+                # 2) Attempt the search
                 with st.spinner("Searching documents..."):
                     try:
                         response = st.session_state.session.post(
-                            f"{API_BASE_URL}/search_docs", json=search_data
+                            f"{API_BASE_URL}/search_docs",
+                            json=search_data
                         )
                         try:
                             result = response.json()
@@ -474,45 +482,186 @@ elif selection == "Search Documents":
                             st.success(f"Found {results_count} result{'s' if results_count != 1 else ''}.")
 
                             if results:
-                                for doc in results:
-                                    filename = doc.get("filename")
-                                    similarity = doc.get("similarity")
-                                    distance = doc.get("distance")
-                                    summary_obj = doc.get("summary", {})
-                                    # Grab the summary text
-                                    if isinstance(summary_obj, str):
-                                        tooltip_content = summary_obj
-                                    else:
-                                        tooltip_content = summary_obj.get("answer") or summary_obj.get("message", "No summary available.")
+                                # 3) Load the classification data from Excel
+                                import pandas as pd
+                                import os
 
-                                    # Generate pre-signed URL if needed
-                                    s3_key = f"documents/{filename}"
-                                    url_resp = st.session_state.session.post(
-                                        f"{API_BASE_URL}/generate_presigned_url",
-                                        json={"object_key": s3_key}
+                                excel_path = "classified_results.xlsx"
+                                if not os.path.exists(excel_path):
+                                    st.error(
+                                        f"Classification Excel '{excel_path}' not found. "
+                                        "Please ensure it exists."
                                     )
-                                    if url_resp.status_code == 200:
-                                        presigned_url = url_resp.json().get("url")
-                                    else:
-                                        presigned_url = None
+                                    st.stop()
 
-                                    # Tooltip
-                                    tooltip_html = f"""
-                                    <div class="tooltip">{filename}
-                                        <span class="tooltiptext">{tooltip_content}</span>
-                                    </div>
-                                    """
-                                    st.markdown(tooltip_html, unsafe_allow_html=True)
-                                    st.write(f"Similarity: {similarity}%")
-                                    st.write(f"Distance: {distance}")
-                                    if presigned_url:
-                                        st.markdown(
-                                            f'<a href="{presigned_url}" target="_blank">View Document</a>',
-                                            unsafe_allow_html=True
-                                        )
+                                df_class = pd.read_excel(excel_path)
+                                classification_data = {}
+                                for idx, row in df_class.iterrows():
+                                    fname = str(row["Filename"]).strip()
+                                    raw_class = str(row["Classification"]).lower()
+                                    # e.g. "case_type: criminal, winner: defense"
+                                    # We'll parse the substring after "winner: "
+                                    # or default to "unknown"
+                                    winner = "unknown"
+                                    if "winner:" in raw_class:
+                                        try:
+                                            # e.g. "case_type: civil, winner: plaintiff"
+                                            winner_part = raw_class.split("winner:")[1]
+                                            # " plaintiff"
+                                            winner = winner_part.strip().split(",")[0].split()[0]
+                                            # e.g. "plaintiff"
+                                        except:
+                                            pass
+
+                                    classification_data[fname] = winner
+                                from collections import defaultdict
+
+                                grouped_results = defaultdict(list)
+                                for doc in results:
+                                    try:
+                                        filename = doc.get("filename")
+                                    except:
+                                        filename = ""
+                                    try:
+                                        similarity = doc.get("similarity")
+                                    except:
+                                        similarity = 0
+                                    try:
+                                        distance = doc.get("distance")
+                                    except:
+                                        distance = 0
+                                    try:
+                                        summary = doc.get("summary", {}).get("answer")
+                                    except:
+                                        summary =  "No summary available."
+
+                                    print(filename, similarity, distance, summary)
+
+                                    grouped_results[filename].append({
+                                        "similarity": similarity,
+                                        "distance": distance,
+                                        "summary": summary
+                                    })
+
+                                # 4) We'll separate the search results into two groups
+                                in_favor_results = []
+                                not_in_favor_results = []
+
+                                user_role_lower = user_role.lower()
+
+                                unique_results = []
+                                for filename, docs in grouped_results.items():
+                                    # Sort the chunks by similarity in descending order
+                                    sorted_docs = sorted(docs, key=lambda x: x["similarity"], reverse=True)
+                                    top_doc = sorted_docs[0]  # Select the chunk with highest similarity
+                                    unique_results.append({
+                                        "filename": filename,
+                                        "similarity": top_doc["similarity"],
+                                        "distance": top_doc["distance"],
+                                        "summary": top_doc["summary"]
+                                    })
+
+                                # 5) Classify the unique results into 'In Favor' and 'Not in Favor'
+                                in_favor_results = []
+                                not_in_favor_results = []
+
+                                user_role_lower = user_role.lower()
+
+                                for doc in unique_results:
+                                    filename = doc.get("filename", "")
+                                    # If the classification is unknown or not present, we treat it as 'not in favor'
+                                    doc_winner = classification_data.get(filename, "unknown")
+
+                                    if doc_winner == user_role_lower:
+                                        in_favor_results.append(doc)
                                     else:
-                                        st.error("Failed to generate a pre-signed URL for the document.")
-                                    st.markdown("---")
+                                        not_in_favor_results.append(doc)
+
+                                # 5) Display the results in two columns
+                                col1, col2 = st.columns(2)
+
+                                with col1:
+                                    st.subheader("In Favor")
+                                    if in_favor_results:
+                                        for doc in in_favor_results:
+                                            filename = doc.get("filename")
+                                            similarity = doc.get("similarity")
+                                            distance = doc.get("distance")
+
+                                            summary_obj = doc.get("summary", {})
+                                            if isinstance(summary_obj, str):
+                                                tooltip_content = summary_obj
+                                            else:
+                                                tooltip_content = summary_obj.get("answer") or summary_obj.get("message", "No summary available.")
+
+                                            tooltip_html = f"""
+                                            <div class="tooltip">{filename}
+                                                <span class="tooltiptext">{tooltip_content}</span>
+                                            </div>
+                                            """
+                                            st.markdown(tooltip_html, unsafe_allow_html=True)
+                                            st.write(f"Similarity: {similarity}%")
+                                            st.write(f"Distance: {distance}")
+
+                                            # Pre-signed URL logic if needed
+                                            s3_key = f"documents/{filename}"
+                                            url_resp = st.session_state.session.post(
+                                                f"{API_BASE_URL}/generate_presigned_url",
+                                                json={"object_key": s3_key}
+                                            )
+                                            if url_resp.status_code == 200:
+                                                presigned_url = url_resp.json().get("url")
+                                                st.markdown(
+                                                    f'<a href="{presigned_url}" target="_blank">View Document</a>',
+                                                    unsafe_allow_html=True
+                                                )
+                                            else:
+                                                st.error("Failed to generate a pre-signed URL for the document.")
+                                            st.markdown("---")
+                                    else:
+                                        st.info("No results in favor.")
+
+                                with col2:
+                                    st.subheader("Not in Favor")
+                                    if not_in_favor_results:
+                                        for doc in not_in_favor_results:
+                                            filename = doc.get("filename")
+                                            similarity = doc.get("similarity")
+                                            distance = doc.get("distance")
+
+                                            summary_obj = doc.get("summary", {})
+                                            if isinstance(summary_obj, str):
+                                                tooltip_content = summary_obj
+                                            else:
+                                                tooltip_content = summary_obj.get("answer") or summary_obj.get("message", "No summary available.")
+
+                                            tooltip_html = f"""
+                                            <div class="tooltip">{filename}
+                                                <span class="tooltiptext">{tooltip_content}</span>
+                                            </div>
+                                            """
+                                            st.markdown(tooltip_html, unsafe_allow_html=True)
+                                            st.write(f"Similarity: {similarity}%")
+                                            st.write(f"Distance: {distance}")
+
+                                            # Pre-signed URL logic if needed
+                                            s3_key = f"documents/{filename}"
+                                            url_resp = st.session_state.session.post(
+                                                f"{API_BASE_URL}/generate_presigned_url",
+                                                json={"object_key": s3_key}
+                                            )
+                                            if url_resp.status_code == 200:
+                                                presigned_url = url_resp.json().get("url")
+                                                st.markdown(
+                                                    f'<a href="{presigned_url}" target="_blank">View Document</a>',
+                                                    unsafe_allow_html=True
+                                                )
+                                            else:
+                                                st.error("Failed to generate a pre-signed URL for the document.")
+                                            st.markdown("---")
+                                    else:
+                                        st.info("No results not in favor.")
+
                             else:
                                 st.info("No documents meet the similarity threshold.")
                         else:
@@ -522,12 +671,13 @@ elif selection == "Search Documents":
                     except Exception as e:
                         st.error(f"An unexpected error occurred: {e}")
 
+
 # Chat Page
 elif selection == "Chat":
     if not st.session_state.logged_in:
         st.warning("Please log in to access chat functionality.")
     else:
-        st.title("Chat with AdvoKare")
+        st.title("Chat with LegalKare")
 
         # 1) Fetch user's documents for selection
         try:
