@@ -6,6 +6,7 @@ import faiss
 import json
 import os
 import logging
+from bson import ObjectId
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -305,6 +306,28 @@ def clear_data():
     except Exception as e:
         logger.error(f"Error clearing data: {e}")
         raise e
+
+
+
+
+
+
+def serialize_document(doc):
+    """
+    Convert MongoDB document to a JSON-serializable dictionary.
+    """
+    if not doc:
+        return doc
+    serialized_doc = {}
+    for key, value in doc.items():
+        if isinstance(value, ObjectId):
+            serialized_doc[key] = str(value)
+        elif isinstance(value, list):
+            serialized_doc[key] = [str(item) if isinstance(item, ObjectId) else item for item in value]
+        else:
+            serialized_doc[key] = value
+    return serialized_doc
+
 
 # ============================================
 # Initialization

@@ -6,6 +6,7 @@ from botocore.exceptions import ClientError
 import hmac
 import hashlib
 import base64
+from bson.objectid import ObjectId
 import os
 import io
 from pymongo import MongoClient
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 from source.main import (
     clear_data, extract_text_from_pdf, retrieve_documents,
     create_embeddings, allowed_file, add_document_chunks,
-    chunk_text, save_index, get_document_text, extract_text
+    chunk_text, save_index, get_document_text, extract_text, serialize_document
 )
 from source.llm_process import llm_process
 from source.llm_summarizer import llm_summariser
@@ -33,6 +34,12 @@ load_dotenv()
 # Define the required variables
 # ============================================
 profile_bp = Blueprint('profile_bp', __name__)
+documents_bp = Blueprint('documents', __name__)
+
+
+
+
+
 
 # AWS Configuration
 region_name = os.getenv("REGION")
@@ -77,10 +84,15 @@ appointments_collection = db["appointments"]
 user_documents_collection = db["user_documents"]
 metadata_collection = db["legal_documents"]
 summary_collection = db["summary"]
+teams_collection = db["teams"]
 
 # Initialize counter for user IDs
 if not db["counters"].find_one({"_id": "user_id"}):
     db["counters"].insert_one({"_id": "user_id", "seq": 0})
+
+if not db["counters"].find_one({"_id": "team_id"}):
+    db["counters"].insert_one({"_id": "team_id", "seq": 0})
+    logger.info("Initialized counter for team_id with seq=0")
 
 
 # ============================================
@@ -99,6 +111,23 @@ def get_next_user_id():
     )
     seq_num = counter["seq"]
     return f"UID{seq_num:04d}"  # Format as UID0001, UID0002, ...
+
+
+
+
+def get_next_team_id():
+    """
+    Generate the next team ID in the sequence.
+    """
+    counter = db["counters"].find_one_and_update(
+        {"_id": "team_id"},
+        {"$inc": {"seq": 1}},
+        return_document=True
+    )
+    seq_num = counter["seq"]
+    return f"TID{seq_num:04d}"  # Format as TID0001, TID0002, ...
+
+
 
 def send_email(to_address, subject, body_text, body_html=None):
     """
@@ -581,26 +610,38 @@ def view_appointments():
 
 
 @app.route('/add_annotation', methods=['POST'])
-@login_required
 def add_annotation():
     """
     Endpoint to add annotations to a document with optional highlights.
+    Expects user_id from the frontend.
     """
-    user_id = session.get('user_id')
-    document_name = request.json.get('document_name')
-    annotation = request.json.get('annotation')  # The annotation text
-    highlighted_text = request.json.get('highlighted_text')  # The text highlighted by the user
-    start_index = request.json.get('start_index')  # Start position of the highlighted text
-    end_index = request.json.get('end_index')  # End position of the highlighted text
-    page_number = request.json.get('page_number', None)  # Optional page number
+    data = request.json
+    user_id = data.get('user_id')
+    document_name = data.get('document_name')
+    annotation = data.get('annotation')
+    highlighted_text = data.get('highlighted_text')
+    start_index = data.get('start_index')
+    end_index = data.get('end_index')
+    page_number = data.get('page_number', 1)
 
-    if not document_name or not annotation:
-        return jsonify({"message": "Document name or annotation is missing", "status": "error"}), 400
+    # Basic validation
+    if not user_id or not document_name or not annotation:
+        return jsonify({"message": "User ID, document name, or annotation is missing.", "status": "error"}), 400
 
     if highlighted_text and (start_index is None or end_index is None):
         return jsonify({"message": "Start and end indices are required for highlighted text.", "status": "error"}), 400
 
     try:
+        # Validate user exists
+        user = users_collection.find_one({"user_id": user_id})
+        if not user:
+            return jsonify({"message": "Invalid user ID.", "status": "error"}), 400
+
+        # Optional: Sanitize annotation to prevent XSS
+        # import bleach
+        # annotation = bleach.clean(annotation)
+
+        # Prepare annotation data
         annotation_data = {
             "user_id": user_id,
             "document_name": document_name,
@@ -608,32 +649,39 @@ def add_annotation():
             "highlighted_text": highlighted_text,
             "start_index": start_index,
             "end_index": end_index,
-            "page_number": page_number
+            "page_number": page_number,
+            "timestamp": datetime.datetime.utcnow()
         }
+
+        # Insert into MongoDB
         annotations_collection.insert_one(annotation_data)
-        return jsonify({"message": "Annotation added successfully.", "status": "success"}), 200
+
+        return jsonify({
+            "message": "Annotation added successfully.",
+            "status": "success",
+            "user_id": user_id,
+            "timestamp": annotation_data["timestamp"].isoformat()
+        }), 200
     except Exception as e:
         return jsonify({"message": str(e), "status": "error"}), 500
 
-
 @app.route('/get_annotations', methods=['GET'])
-@login_required
 def get_annotations():
     """
-    Endpoint to get annotations and highlights for a document by a user.
+    Endpoint to retrieve annotations for a specific document.
     """
-    user_id = session.get('user_id')
     document_name = request.args.get('document_name')
-
     if not document_name:
-        return jsonify({"message": "Document name is missing", "status": "error"}), 400
+        return jsonify({"message": "Document name is missing.", "status": "error"}), 400
 
     try:
-        annotations = list(annotations_collection.find({
-            "user_id": user_id,
-            "document_name": document_name
-        }, {"_id": 0}))  # Exclude MongoDB's default _id field
-        return jsonify({"annotations": annotations, "status": "success"}), 200
+        # Retrieve annotations from MongoDB
+        annotations = list(annotations_collection.find({"document_name": document_name}, {"_id": 0}))
+        # Convert datetime objects to ISO format strings
+        for ann in annotations:
+            if isinstance(ann.get("timestamp"), datetime.datetime):
+                ann["timestamp"] = ann["timestamp"].isoformat()
+        return jsonify({"status": "success", "annotations": annotations}), 200
     except Exception as e:
         return jsonify({"message": str(e), "status": "error"}), 500
 
@@ -1046,34 +1094,254 @@ def generate_presigned_url_route():
         return jsonify({"message": "Failed to generate pre-signed URL", "status": "error"}), 500
 
 
-
 @app.route('/serve_document', methods=['GET'])
-@login_required  # Ensure only authenticated users can access
+@login_required
 def serve_document():
     document_key = request.args.get('document_key')
-
     if not document_key:
-        return jsonify({"message": "No document_key provided.", "status": "error"}), 400
-
-    # Additional authorization checks can be added here
-    # For example, verify if the user has access to the requested document
+        return jsonify({"status": "error", "message": "Missing 'document_key' parameter."}), 400
 
     try:
-        s3_response = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=document_key)
-        file_stream = s3_response['Body'].read()
-        return send_file(
-            io.BytesIO(file_stream),
-            attachment_filename=document_key.split('/')[-1],
-            mimetype=s3_response['ContentType']
+        # Generate a pre-signed URL for the object
+        presigned_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': document_key},
+            ExpiresIn=3600  # URL valid for 1 hour
         )
     except ClientError as e:
-        if e.response['Error']['Code'] == 'NoSuchKey':
-            return jsonify({"message": "Document not found.", "status": "error"}), 404
-        else:
-            return jsonify({"message": "Error fetching document.", "status": "error"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    # Fetch the content directly (not using pre-signed URL)
+    try:
+        s3_response = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=document_key)
+        content = s3_response['Body'].read().decode('utf-8')
+        return content, 200
+    except ClientError as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@documents_bp.route('/delete_document/<document_id>', methods=['DELETE'])
+@login_required
+def delete_document(document_id):
+    """
+    Delete a document uploaded by the user.
+    """
+    user_id = session.get("user_id")
+
+    # Validate the document ID
+    try:
+        doc_obj_id = ObjectId(document_id)
+    except:
+        return jsonify({"message": "Invalid document ID.", "status": "error"}), 400
+
+    # Find the document
+    document = user_documents_collection.find_one({"_id": doc_obj_id, "user_id": user_id})
+    if not document:
+        return jsonify({"message": "Document not found or unauthorized.", "status": "error"}), 404
+
+    s3_key = document.get("s3_key")
+    if not s3_key:
+        return jsonify({"message": "S3 key not found for the document.", "status": "error"}), 500
+
+    try:
+        # Delete the document from S3
+        s3_client.delete_object(Bucket=S3_BUCKET_NAME, Key=s3_key)
+
+        # Remove the document from the database
+        user_documents_collection.delete_one({"_id": doc_obj_id})
+
+        return jsonify({"message": "Document deleted successfully.", "status": "success"}), 200
+    except ClientError as e:
+        return jsonify({"message": f"Error deleting document from S3: {str(e)}", "status": "error"}), 500
+    except Exception as e:
+        return jsonify({"message": f"Error deleting document: {str(e)}", "status": "error"}), 500
+
+
+@documents_bp.route('/documents/create_team', methods=['POST'])
+@login_required  # Ensure you have a login_required decorator
+def create_team():
+    data = request.get_json()
+    team_name = data.get("team_name")
+    member_user_ids = data.get("member_user_ids", [])
+
+    if not team_name or not member_user_ids:
+        return jsonify({"status": "error", "message": "Team name and members are required."}), 400
+
+    try:
+        # Generate a unique team_id, e.g., using UUID or any other method
+        import uuid
+        team_id = str(uuid.uuid4())
+
+        # Insert the new team into the database
+        team = {
+            "team_id": team_id,
+            "team_name": team_name,
+            "created_by": session.get("user_id"),
+            "created_at": datetime.utcnow(),
+            "members": member_user_ids
+        }
+        teams_collection.insert_one(team)
+
+        return jsonify({"status": "success", "message": "Team created successfully.", "team_id": team_id}), 201
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@documents_bp.route('/share_document_with_team', methods=['POST'])
+@login_required
+def share_document_with_team():
+    """
+    Share a document with a specific team.
+    """
+    user_id = session.get("user_id")
+    data = request.json
+    document_id = data.get("document_id")
+    team_id = data.get("team_id")
+
+    if not document_id or not team_id:
+        return jsonify({"message": "Document ID and team ID are required.", "status": "error"}), 400
+
+    # Validate document ownership
+    try:
+        doc_obj_id = ObjectId(document_id)
+    except:
+        return jsonify({"message": "Invalid document ID.", "status": "error"}), 400
+
+    document = user_documents_collection.find_one({"_id": doc_obj_id, "user_id": user_id})
+    if not document:
+        return jsonify({"message": "Document not found or unauthorized.", "status": "error"}), 404
+
+    # Check if team exists
+    team = teams_collection.find_one({"team_id": team_id})
+    if not team:
+        return jsonify({"message": "Team does not exist.", "status": "error"}), 404
+
+    # Update the 'shared_with_teams' list
+    try:
+        user_documents_collection.update_one(
+            {"_id": doc_obj_id},
+            {"$addToSet": {"shared_with_teams": team_id}}
+        )
+        return jsonify({"message": f"Document shared with team {team_id} successfully.", "status": "success"}), 200
+    except Exception as e:
+        return jsonify({"message": f"Error sharing document with team: {str(e)}", "status": "error"}), 500
+
+
+@documents_bp.route('/set_document_privacy/<document_id>', methods=['PUT'])
+@login_required
+def set_document_privacy(document_id):
+    """
+    Set the privacy status of a document (private or public).
+    """
+    user_id = session.get("user_id")
+    data = request.json
+    is_private = data.get("is_private")
+
+    if is_private is None:
+        return jsonify({"message": "is_private field is required.", "status": "error"}), 400
+
+    # Validate document ownership
+    try:
+        doc_obj_id = ObjectId(document_id)
+    except:
+        return jsonify({"message": "Invalid document ID.", "status": "error"}), 400
+
+    document = user_documents_collection.find_one({"_id": doc_obj_id, "user_id": user_id})
+    if not document:
+        return jsonify({"message": "Document not found or unauthorized.", "status": "error"}), 404
+
+    try:
+        user_documents_collection.update_one(
+            {"_id": doc_obj_id},
+            {"$set": {"is_private": bool(is_private)}}
+        )
+        status = "private" if is_private else "public"
+        return jsonify({"message": f"Document privacy set to {status}.", "status": "success"}), 200
+    except Exception as e:
+        return jsonify({"message": f"Error setting document privacy: {str(e)}", "status": "error"}), 500
+
+
+@documents_bp.route('/documents/add_team_member', methods=['POST'])
+@login_required
+def add_team_member():
+    """
+    Add a new member to an existing team.
+    """
+    data = request.get_json()
+    team_id = data.get("team_id")
+    member_user_id = data.get("member_user_id")
+
+    if not team_id or not member_user_id:
+        return jsonify({"status": "error", "message": "team_id and member_user_id are required."}), 400
+
+    try:
+        # Check if the team exists
+        team = teams_collection.find_one({"team_id": team_id})
+        if not team:
+            return jsonify({"status": "error", "message": "Team not found."}), 404
+
+        # Optionally, check if the member_user_id exists in users_collection
+        member = users_collection.find_one({"user_id": member_user_id})
+        if not member:
+            return jsonify({"status": "error", "message": "User to add not found."}), 404
+
+        # Add the member to the team if not already a member
+        if member_user_id in team.get("members", []):
+            return jsonify({"status": "error", "message": "User is already a member of the team."}), 400
+
+        teams_collection.update_one(
+            {"team_id": team_id},
+            {"$push": {"members": member_user_id}}
+        )
+
+        return jsonify({"status": "success", "message": "Member added to the team successfully."}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
+
+@documents_bp.route('/get_teams', methods=['GET'])
+@login_required
+def get_teams():
+    """
+    Retrieve all teams the user is part of.
+    """
+    user_id = session.get("user_id")
+    try:
+        teams = teams_collection.find({"members": user_id})
+        teams_list = [serialize_document(team) for team in teams]
+        return jsonify({"status": "success", "teams": teams_list}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+
+
+
+@documents_bp.route('/get_team_members', methods=['GET'])
+@login_required
+def get_team_members():
+    """
+    Retrieve all members of a specific team.
+    """
+    team_id = request.args.get("team_id")
+    if not team_id:
+        return jsonify({"status": "error", "message": "team_id is required."}), 400
+    try:
+        team = teams_collection.find_one({"team_id": team_id})
+        if not team:
+            return jsonify({"status": "error", "message": "Team not found."}), 404
+        members_ids = team.get("members", [])
+        members = users_collection.find({"user_id": {"$in": members_ids}}, {"password": 0})
+        members_list = [serialize_document(member) for member in members]
+        return jsonify({"status": "success", "members": members_list}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 app.register_blueprint(profile_bp, url_prefix="/profile")
+app.register_blueprint(documents_bp, url_prefix="/documents")
 
 if __name__ == '__main__':
     app.run(debug=True, port=5002)

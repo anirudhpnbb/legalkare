@@ -110,9 +110,7 @@ def llm_classify_case_and_winner(documents_list, model_name):
 
     return result
 
-
-
-def store_result_in_excel(file_name, classification_result, excel_path="output.xlsx"):
+def store_result_in_excel(file_name, classification_result, excel_path="classified_Results.xlsx"):
     """
     Appends a row to 'excel_path' with [file_name, classification_result].
     Creates a new workbook if 'excel_path' doesn't exist.
@@ -135,26 +133,58 @@ def store_result_in_excel(file_name, classification_result, excel_path="output.x
     workbook.save(excel_path)
     print(f"Stored result for '{file_name}' => '{classification_result}' in '{excel_path}'")
 
-
-
 ###############################################################################
 # 5. Example 'main' usage: read docs from 'ik_downloads', classify each
 ###############################################################################
 if __name__ == "__main__":
 
+    # Define the path to the existing classified results Excel file
+    excel_path = "classified_Results.xlsx"
+
+    # Load existing classified filenames to avoid reprocessing
+    if os.path.isfile(excel_path):
+        try:
+            existing_workbook = load_workbook(excel_path)
+            existing_sheet = existing_workbook.active
+            # Assuming filenames are in column A, starting from row 2
+            existing_filenames = set()
+            for row in existing_sheet.iter_rows(min_row=2, min_col=1, max_col=1, values_only=True):
+                if row[0]:
+                    existing_filenames.add(row[0])
+            print(f"Loaded {len(existing_filenames)} already classified files from '{excel_path}'.")
+        except Exception as e:
+            print(f"Error loading existing Excel file '{excel_path}': {e}")
+            existing_filenames = set()
+    else:
+        existing_filenames = set()
+        print(f"No existing Excel file found at '{excel_path}'. Starting fresh.")
+
+    # Read documents from 'ik_downloads' directory
     docs_with_fnames = read_docs_from_ik_downloads("ik_downloads")
     if not docs_with_fnames:
         print("No docs found in 'ik_downloads'.")
         exit(0)
 
-    for (file_name, text) in docs_with_fnames:
+    # Filter out already classified documents
+    docs_to_process = [doc for doc in docs_with_fnames if doc[0] not in existing_filenames]
+    print(f"Found {len(docs_to_process)} documents to process after filtering.")
+
+    if not docs_to_process:
+        print("All documents have already been classified. Nothing to do.")
+        exit(0)
+
+    for (file_name, text) in docs_to_process:
         # Pass the single doc text as a list to the LLM function
         try:
             result = llm_classify_case_and_winner([text], model_name)
-        except:
+        except Exception as e:
+            print(f"Error classifying '{file_name}': {e}")
             result = "Undetermined"
 
         print(f"File: {file_name} => Classification: {result}")
 
         # Store in Excel
-        store_result_in_excel(file_name, result, excel_path="my_results.xlsx")
+        try:
+            store_result_in_excel(file_name, result, excel_path=excel_path)
+        except Exception as e:
+            print(f"Error storing result for '{file_name}' in Excel: {e}")
