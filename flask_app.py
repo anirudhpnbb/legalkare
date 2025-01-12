@@ -7,6 +7,7 @@ import hmac
 import hashlib
 import base64
 from bson.objectid import ObjectId
+from bson.json_util import dumps
 import os
 import io
 from pymongo import MongoClient
@@ -35,7 +36,7 @@ load_dotenv()
 # ============================================
 profile_bp = Blueprint('profile_bp', __name__)
 documents_bp = Blueprint('documents', __name__)
-
+prompts_bp = Blueprint('prompts_bp', __name__)
 
 
 
@@ -85,6 +86,7 @@ user_documents_collection = db["user_documents"]
 metadata_collection = db["legal_documents"]
 summary_collection = db["summary"]
 teams_collection = db["teams"]
+prompts_collection = db["prompts"]
 
 # Initialize counter for user IDs
 if not db["counters"].find_one({"_id": "user_id"}):
@@ -94,6 +96,9 @@ if not db["counters"].find_one({"_id": "team_id"}):
     db["counters"].insert_one({"_id": "team_id", "seq": 0})
     logger.info("Initialized counter for team_id with seq=0")
 
+if not db["counters"].find_one({"_id": "prompt_id"}):
+    db["counters"].insert_one({"_id": "prompt_id", "seq": 0})
+    logger.info("Initialized counter for prompt_id with seq=0")
 
 # ============================================
 # Define the APIs
@@ -113,6 +118,18 @@ def get_next_user_id():
     return f"UID{seq_num:04d}"  # Format as UID0001, UID0002, ...
 
 
+def get_next_prompt_id():
+    """
+    Generate the next prompt ID in the sequence.
+    """
+    counter = db["counters"].find_one_and_update(
+        {"_id": "prompt_id"},
+        {"$inc": {"seq": 1}},
+        return_document=True,
+        upsert=True
+    )
+    seq_num = counter["seq"]
+    return f"PROMPT{seq_num:04d}"  # Format as PROMPT0001, PROMPT0002, ...
 
 
 def get_next_team_id():
@@ -1157,34 +1174,44 @@ def delete_document(document_id):
         return jsonify({"message": f"Error deleting document: {str(e)}", "status": "error"}), 500
 
 
-@documents_bp.route('/documents/create_team', methods=['POST'])
+@documents_bp.route('/create_team', methods=['POST'])
 @login_required  # Ensure you have a login_required decorator
 def create_team():
     data = request.get_json()
     team_name = data.get("team_name")
     member_user_ids = data.get("member_user_ids", [])
 
+    # Input Validation
     if not team_name or not member_user_ids:
         return jsonify({"status": "error", "message": "Team name and members are required."}), 400
 
     try:
-        # Generate a unique team_id, e.g., using UUID or any other method
-        import uuid
-        team_id = str(uuid.uuid4())
+        # Generate a unique team_id using the counter
+        team_id = get_next_team_id()
 
-        # Insert the new team into the database
+        # Create the team document
         team = {
             "team_id": team_id,
             "team_name": team_name,
             "created_by": session.get("user_id"),
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.datetime.utcnow(),
             "members": member_user_ids
         }
+
+        # Insert the new team into the database
         teams_collection.insert_one(team)
 
-        return jsonify({"status": "success", "message": "Team created successfully.", "team_id": team_id}), 201
+        logger.info(f"Team '{team_name}' created with ID '{team_id}' by user '{session.get('user_id')}'.")
+
+        return jsonify({
+            "status": "success",
+            "message": "Team created successfully.",
+            "team_id": team_id
+        }), 201
+
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        logger.error(f"Error creating team: {e}")
+        return jsonify({"status": "error", "message": "Failed to create team."}), 500
 
 @documents_bp.route('/share_document_with_team', methods=['POST'])
 @login_required
@@ -1259,6 +1286,12 @@ def set_document_privacy(document_id):
     except Exception as e:
         return jsonify({"message": f"Error setting document privacy: {str(e)}", "status": "error"}), 500
 
+
+
+
+
+
+# -------------- Team details APIs ---------------- #
 
 @documents_bp.route('/documents/add_team_member', methods=['POST'])
 @login_required
@@ -1340,8 +1373,249 @@ def get_team_members():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+@app.route('/get_team_member_profile_picture', methods=['GET'])
+@login_required
+def get_team_member_profile_picture():
+    """
+    Retrieve team member profile picture
+    """
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({"status":"error", "message":"user_id is required"}), 400
+    try:
+        user = users_collection.find_one({"user_id":user_id})
+        if not user:
+            return jsonify({"status":"error", "message":"User not found"}), 400
+        if user.get("profile_picture_key"):
+            presigned_url = generate_presigned_url(S3_BUCKET_NAME, user["profile_picture_key"])
+            user["profile_picture_url"] = presigned_url
+            return jsonify({"status":"success", "url":user["profile_picture_url"]})
+    except:
+        return jsonify({"status":"error", "message":"Invalid"})
+
+
+
+
+
+
+# -------------- Prompt APIs ------------------- #
+
+@app.route('/get_prompts', methods=['GET'])
+@login_required
+def get_prompts():
+    """
+    Retrive all default prompts
+    """
+    prompt_type = request.args.get("type")
+    try:
+        type_of_prompt=prompt_type
+        prompts_cursor = prompts_collection.find({"type":type_of_prompt})
+        prompts = list(prompts_cursor)
+        prompts_json = dumps(prompts)
+        return app.response_class(prompts_json, mimetype='application/json'), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching prompts: {e}")
+
+        return jsonify({
+            "message": "An error occurred while fetching prompts.",
+            "error": str(e),
+            "status": "error"
+        }), 500
+
+
+@prompts_bp.route('/add_prompt', methods=['POST'])
+@login_required
+def add_prompt():
+    """
+    Add a new prompt to the prompts collection.
+    Expects JSON body with 'type_of_prompt', 'title', 'description', 'content'.
+    """
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized access. Please log in."}), 401
+
+    # Get data from request body
+    data = request.get_json()
+    if not data:
+        return jsonify({"status": "error", "message": "Invalid JSON body."}), 400
+
+    type_of_prompt = data.get("type_of_prompt")
+    title = data.get("title")
+    content = data.get("content")
+
+    # Validate required fields
+    missing_fields = []
+    for field in ["type_of_prompt", "title", "content"]:
+        if not data.get(field):
+            missing_fields.append(field)
+
+    if missing_fields:
+        return jsonify({
+            "status": "error",
+            "message": f"Missing required fields: {', '.join(missing_fields)}."
+        }), 400
+
+    # Generate a unique prompt_id
+    prompt_id = get_next_prompt_id()
+
+    # Prepare the prompt document
+    prompt_doc = {
+        "prompt_id": prompt_id,
+        "type": type_of_prompt,
+        "title": title,
+        "content": content,
+        "created_by": user_id,
+        "created_at": datetime.datetime.utcnow(),
+        "updated_at": datetime.datetime.utcnow(),
+    }
+
+    try:
+        # Insert the new prompt into the prompts collection
+        prompt_doc["status"] = "success"
+        prompts_collection.insert_one(prompt_doc)
+        logger.info(f"Prompt '{prompt_id}' added by user '{user_id}'.")
+        return jsonify({"status":"success"})
+    except Exception as e:
+        logger.error(f"Error adding prompt: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"An error occurred while adding the prompt: {str(e)}."
+        }), 500
+
+@prompts_bp.route('/update_prompt/<prompt_id>', methods=['PUT'])
+@login_required
+def update_prompt(prompt_id):
+    """
+    Update an existing prompt's details.
+    Expects JSON body with any of the fields: 'type_of_prompt', 'title', 'description', 'content'.
+    Only users with the 'admin' role can perform this action.
+    """
+    user_id = session.get("user_id")
+    role = session.get("role")
+
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized access. Please log in."}), 401
+
+    # Restrict prompt updates to admin users
+    if role != "admin":
+        return jsonify({"status": "error", "message": "Permission denied. Only admins can update prompts."}), 403
+
+    # Get data from request body
+    data = request.get_json()
+    if not data:
+        return jsonify({"status": "error", "message": "Invalid JSON body."}), 400
+
+    # Allowed fields for update
+    allowed_fields = ["type_of_prompt", "title", "description", "content"]
+
+    # Prepare update data with sanitization
+    update_data = {}
+    for field in allowed_fields:
+        if field in data:
+            sanitized_value = bleach.clean(data[field])
+            if field == "type_of_prompt" and sanitized_value not in ["default", "custom"]:
+                return jsonify({
+                    "status": "error",
+                    "message": "Invalid value for 'type_of_prompt'. Allowed values are 'default' or 'custom'."
+                }), 400
+            update_data[field] = sanitized_value
+
+    if not update_data:
+        return jsonify({"status": "error", "message": "No valid fields provided for update."}), 400
+
+    try:
+        # Find and update the prompt
+        result = prompts_collection.update_one(
+            {"prompt_id": prompt_id},
+            {
+                "$set": {
+                    **update_data,
+                    "updated_at": datetime.datetime.utcnow()
+                }
+            }
+        )
+
+        if result.matched_count == 0:
+            return jsonify({"status": "error", "message": "Prompt not found."}), 404
+
+        return jsonify({"status": "success", "message": "Prompt updated successfully."}), 200
+
+    except Exception as e:
+        logger.error(f"Error updating prompt '{prompt_id}': {e}")
+        return jsonify({"status": "error", "message": f"An error occurred while updating the prompt: {str(e)}."}), 500
+
+@prompts_bp.route('/delete_prompt/<prompt_id>', methods=['DELETE'])
+@login_required
+def delete_prompt(prompt_id):
+    """
+    Delete an existing prompt.
+    Only users with the 'admin' role can perform this action.
+    """
+    user_id = session.get("user_id")
+    role = session.get("role")
+
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized access. Please log in."}), 401
+
+    # Restrict prompt deletion to admin users
+    if role != "admin":
+        return jsonify({"status": "error", "message": "Permission denied. Only admins can delete prompts."}), 403
+
+    try:
+        # Attempt to delete the prompt
+        result = prompts_collection.delete_one({"prompt_id": prompt_id})
+
+        if result.deleted_count == 0:
+            return jsonify({"status": "error", "message": "Prompt not found."}), 404
+
+        return jsonify({"status": "success", "message": "Prompt deleted successfully."}), 200
+
+    except Exception as e:
+        logger.error(f"Error deleting prompt '{prompt_id}': {e}")
+        return jsonify({"status": "error", "message": f"An error occurred while deleting the prompt: {str(e)}."}), 500
+
+@prompts_bp.route('/promote_prompt/<prompt_id>', methods=['PUT'])
+@login_required
+def promote_prompt(prompt_id):
+    """
+    Convert a prompt to public by setting its 'type_of_prompt' to 'default'.
+    Only users with the 'admin' role can perform this action.
+    """
+    user_id = session.get("user_id")
+    role = session.get("role")
+
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized access. Please log in."}), 401
+
+    # Restrict prompt promotion to admin users
+    if role != "admin":
+        return jsonify({"status": "error", "message": "Permission denied. Only admins can promote prompts."}), 403
+
+    try:
+        # Update the prompt's type to 'default' to make it public
+        result = prompts_collection.update_one(
+            {"prompt_id": prompt_id},
+            {
+                "$set": {
+                    "type": "default",
+                    "updated_at": datetime.datetime.utcnow()
+                }
+            }
+        )
+
+        if result.matched_count == 0:
+            return jsonify({"status": "error", "message": "Prompt not found."}), 404
+
+        return jsonify({"status": "success", "message": "Prompt promoted to public successfully."}), 200
+
+    except Exception as e:
+        logger.error(f"Error promoting prompt '{prompt_id}' to public: {e}")
+        return jsonify({"status": "error", "message": f"An error occurred while promoting the prompt: {str(e)}."}), 500
+
 app.register_blueprint(profile_bp, url_prefix="/profile")
 app.register_blueprint(documents_bp, url_prefix="/documents")
+app.register_blueprint(prompts_bp, url_prefix='/prompts')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5002)

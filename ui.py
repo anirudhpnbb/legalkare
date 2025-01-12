@@ -9,7 +9,11 @@ from dotenv import load_dotenv
 import pandas as pd
 from collections import defaultdict
 import json
-
+from fpdf import FPDF
+import io
+import re
+import chardet
+from io import BytesIO
 # Load environment variables from .env if present
 load_dotenv()
 
@@ -17,6 +21,7 @@ load_dotenv()
 API_BASE_URL = "http://127.0.0.1:5002"  # Change if needed
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 BOT_NAME = "Gavel"
+COURT_TEMPLATES_FOLDER = "court_templates"
 
 # ---------------------------- Initialize Session State ---------------------------- #
 def init_session_state():
@@ -96,8 +101,10 @@ if st.session_state.logged_in:
         navigation_options = [
             "Home",
             "Upload Document",
-            "Documents",
+            "Documents Control Panel",
+            "View Documents",
             "Search Documents",
+            "Create Court Document",
             "Chat",
             "Profile",
             "Teams",
@@ -874,7 +881,7 @@ else:
                             st.error(f"An error occurred: {e}")
 
     # ---------------------------- View Documents Page ---------------------------- #
-    elif selection == "Documents":
+    elif selection == "Documents Control Panel":
         if not st.session_state.logged_in:
             st.warning("Please log in to manage your documents.")
         else:
@@ -1033,6 +1040,95 @@ else:
                         st.session_state.selected_document = doc_details
             else:
                 st.info("No documents uploaded yet.")
+
+
+
+
+    # ---------------------------- View Documents Page ---------------------------- #
+    elif selection == "View Documents":
+        if not st.session_state.logged_in:
+            st.warning("Please log in to view your documents.")
+        else:
+            st.title("View Documents")
+
+            # ---------------------------- List Folders ---------------------------- #
+            st.subheader("Folders and Subfolders")
+
+            # Get documents from the backend
+            try:
+                response = st.session_state.session.get(f"{API_BASE_URL}/my_documents")
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("status") == "success":
+                        documents = result.get("documents", [])
+
+                        # Create folder structure
+                        folders = {}
+                        for doc in documents:
+                            folder_path = doc.get("folder", "")
+                            if folder_path:
+                                parts = folder_path.split('/')
+                                top_level_folder = parts[0]
+                                subfolder = parts[1] if len(parts) > 1 else None
+
+                                if top_level_folder not in folders:
+                                    folders[top_level_folder] = {"subfolders": {}, "files": []}
+
+                                if subfolder:
+                                    if subfolder not in folders[top_level_folder]["subfolders"]:
+                                        folders[top_level_folder]["subfolders"][subfolder] = []
+                                    folders[top_level_folder]["subfolders"][subfolder].append(doc)
+                                else:
+                                    folders[top_level_folder]["files"].append(doc)
+
+                        # Display top-level folders
+                        for folder_name, folder_data in folders.items():
+                            with st.expander(f"📂 {folder_name}"):
+                                # Show files in this folder
+                                if folder_data["files"]:
+                                    st.markdown("### Files:")
+                                    for file in folder_data["files"]:
+                                        file_name = file.get("doc_filename")
+                                        unique_key = file.get("_id")  # Use the _id as the unique key
+                                        if st.button(f"📄 {file_name}", key=f"file_{unique_key}"):
+                                            # When file is clicked, set it as selected
+                                            st.session_state.selected_document = file
+                                            st.session_state.current_view = "Document Viewer"
+                                            st.write(f"Viewing document: {file_name}")
+                                else:
+                                    st.info(f"No files found in {folder_name}")
+
+                                # Show subfolders in this folder
+                                if folder_data["subfolders"]:
+                                    # Create a dropdown for subfolders inside the current folder
+                                    subfolder_selection = st.selectbox(f"Select Subfolder in {folder_name}",
+                                                                       ["-- Select Subfolder --"] + list(
+                                                                           folder_data["subfolders"].keys()))
+                                    if subfolder_selection != "-- Select Subfolder --":
+                                        subfolder_files = folder_data["subfolders"][subfolder_selection]
+                                        st.markdown(f"### Files in {subfolder_selection} Subfolder:")
+                                        for file in subfolder_files:
+                                            file_name = file.get("doc_filename")
+                                            unique_key = file.get("_id")  # Use the _id as the unique key
+                                            if st.button(f"📄 {file_name}", key=f"subfolder_file_{unique_key}"):
+                                                # When file in subfolder is clicked, set it as selected
+                                                st.session_state.selected_document = file
+                                                st.session_state.current_view = "Document Viewer"
+                                                st.write(f"Viewing document: {file_name}")
+
+                    else:
+                        st.error("Failed to fetch documents from the server.")
+                else:
+                    st.error(f"Failed to fetch documents. Status code: {response.status_code}")
+
+            except requests.exceptions.ConnectionError:
+                st.error("Could not connect to the server. Please ensure the backend is running.")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+
+
+
+
 
     elif selection == "Search Documents":
         if not st.session_state.logged_in:
@@ -1269,117 +1365,357 @@ else:
 
 
 
-    # Chat Page
+
+
     elif selection == "Chat":
+
         if not st.session_state.logged_in:
+
             st.warning("Please log in to access chat functionality.")
+
         else:
+
             st.title("Chat with LegalKare")
 
-            # 1) Initialize chat_history and add default message if empty
+            # ---------------------------- Prompt Selection ---------------------------- #
+
+            st.subheader("Select a Prompt")
+
+            # Dropdown to select prompt type
+
+            prompt_type = st.selectbox(
+
+                "Select Prompt Type",
+
+                ["Default", "Private", "Public"],
+
+                index=0
+
+            )
+
+            # Fetch prompts from the backend
+
+            with st.spinner("Fetching prompts..."):
+
+                try:
+
+                    # Pass 'type' as a query parameter to fetch specific prompts
+
+                    response = st.session_state.session.get(f"{API_BASE_URL}/get_prompts",
+
+                                                            params={"type": prompt_type.lower()})
+                    print(response, prompt_type, "__________________________________")
+
+                    if response.status_code == 200:
+
+                        prompts_data = response.json()  # This should be a list
+                        print(prompts_data)
+
+                        if isinstance(prompts_data, list):  # Check if it's a list
+
+                            prompts = prompts_data  # Directly assign the list to prompts
+
+                        else:
+
+                            st.error("Unexpected response format.")
+
+                            prompts = []
+
+                    else:
+
+                        st.error("Failed to fetch prompts from the server.")
+
+                        prompts = []
+
+                except Exception as e:
+
+                    st.error(f"An error occurred while fetching prompts: {e}")
+
+                    prompts = []
+
+            if prompts:
+                print(prompts)
+
+                prompt_titles = [f"{p['title']} (ID: {p['prompt_id']})" for p in prompts]
+
+                selected_prompt = st.selectbox("Select a Prompt", prompt_titles)
+
+                # Retrieve the selected prompt's content
+
+                selected_prompt_obj = next(
+
+                    (p for p in prompts if f"{p['title']} (ID: {p['prompt_id']})" == selected_prompt), None)
+
+                if selected_prompt_obj:
+                    st.markdown(f"**Prompt Content:** {selected_prompt_obj.get('content')}")
+
+            else:
+
+                st.info(f"No prompts available for type '{prompt_type}'.")
+
+            # ---------------------------- Use Prompt in Chat ---------------------------- #
+
+            if prompts:
+
+                use_prompt = st.checkbox("Use this prompt in chat")
+
+                if use_prompt and selected_prompt_obj:
+                    # Prefill the existing chat input with the selected prompt content
+
+                    prompt_content = selected_prompt_obj.get("content")
+
+                    # Modify the existing chat input field (chat_query) to prefill with the prompt content
+
+                    chat_query = st.session_state.get("chat_input", "")  # Get the current chat input if exists
+
+                    chat_query = st.text_input("Please change the content if needed", value=prompt_content)
+
+                    # Store the input in session state to persist it between reruns
+
+                    st.session_state.chat_input = chat_query  # Update the session state with the new chat input
+
+            # ---------------------------- Add Custom Prompt ---------------------------- #
+
+            st.markdown("---")
+
+            st.subheader("Add a New Custom Prompt")
+
+            add_prompt_button = st.button("Add New Prompt")
+            if add_prompt_button:
+                # Display the form when the button is clicked
+                with st.form("add_prompt_form"):
+                    prompt_title = st.text_input("Prompt Title")
+                    prompt_description = st.text_area("Prompt Description")
+                    prompt_content = st.text_area("Prompt Content")
+                    submit_add_prompt = st.form_submit_button("Add Prompt")
+
+                # Process the form submission
+                if submit_add_prompt:
+                    if not prompt_title.strip() or not prompt_content.strip():
+                        st.error("Please provide both a title and content for the prompt.")
+                    else:
+                        add_prompt_data = {
+                            "type_of_prompt": "Private",  # Assuming users can only add private prompts
+                            "title": prompt_title.strip(),
+                            "description": prompt_description.strip(),
+                            "content": prompt_content.strip()
+                        }
+                        try:
+                            add_prompt_resp = st.session_state.session.post(
+                                f"{API_BASE_URL}/add_prompt",
+                                json=add_prompt_data
+                            )
+                            if add_prompt_resp.status_code == 201:
+                                add_prompt_result = add_prompt_resp.json()
+                                if add_prompt_result.get("status") == "success":
+                                    st.success(
+                                        f"Prompt added successfully with ID: {add_prompt_result.get('prompt')['prompt_id']}")
+                                else:
+                                    st.error(add_prompt_result.get("message", "Failed to add prompt."))
+                            else:
+                                try:
+                                    error_message = add_prompt_resp.json().get("message", "Failed to add prompt.")
+                                except:
+                                    error_message = "Failed to add prompt."
+                                st.error(error_message)
+                        except Exception as e:
+                            st.error(f"An error occurred while adding the prompt: {e}")
+
+            # ---------------------------- Existing Chat Functionality ---------------------------- #
+
+            # Initialize chat_history and add default message if empty
+
             if not st.session_state.chat_history:
                 st.session_state.chat_history.append({
+
                     "role": "assistant",
+
                     "content": f"Hello! I'm {BOT_NAME}, your legal assistant. How can I help you today?"
+
                 })
 
-            # 2) Fetch user's documents for selection
+            # Fetch user's documents for selection
+
             try:
+
                 response = st.session_state.session.get(f"{API_BASE_URL}/my_documents")
-                try:
+
+                if response.headers.get('Content-Type') == 'application/json':
+
                     result = response.json()
-                except ValueError:
+
+                    if response.status_code == 200 and result.get("status") == "success":
+
+                        documents = result.get("documents", [])
+
+                        if documents:
+
+                            document_names = [doc.get("doc_filename") for doc in documents]
+
+                            selected_doc = st.selectbox("Select a document to chat about", document_names)
+
+                        else:
+
+                            st.info("No documents uploaded yet.")
+
+                            selected_doc = None
+
+                    else:
+
+                        st.error(result.get("message"))
+
+                        selected_doc = None
+
+                else:
+
                     st.error("Received an invalid response from the server.")
+
                     st.write("**Response Status Code:**", response.status_code)
+
                     st.write("**Response Content:**", response.text)
+
                     st.stop()
 
-                if response.status_code == 200:
-                    documents = result.get("documents", [])
-                    if documents:
-                        document_names = [doc.get("doc_filename") for doc in documents]
-                        selected_doc = st.selectbox("Select a document to chat about", document_names)
-                    else:
-                        st.info("No documents uploaded yet.")
-                        selected_doc = None
-                else:
-                    st.error(result.get("message"))
-                    selected_doc = None
             except requests.exceptions.ConnectionError:
+
                 st.error("Could not connect to the server. Please ensure the backend is running.")
-                selected_doc = None
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+
                 selected_doc = None
 
-            # 3) User input for chat
+            except Exception as e:
+
+                st.error(f"An error occurred: {e}")
+
+                selected_doc = None
+
+            # ---------------------------- Chat Input ---------------------------- #
+
             chat_query = st.text_input("Enter your question or query", key="chat_input")
+
             if st.button("Send"):
+
                 if not chat_query.strip():
+
                     st.warning("Please enter a valid query.")
+
                 elif not selected_doc:
+
                     st.warning("No document selected or no documents available.")
+
                 else:
+
                     # Append user's question to chat_history
+
                     st.session_state.chat_history.append({
+
                         "role": "user",
+
                         "content": chat_query
+
                     })
 
                     # Send chat request to backend
-                    with st.spinner("Generating response..."):
-                        try:
-                            chat_data = {
-                                "query": chat_query,
-                                "document_name": selected_doc
-                            }
-                            chat_response = st.session_state.session.post(
-                                f"{API_BASE_URL}/chat", json=chat_data
-                            )
-                            try:
-                                chat_result = chat_response.json()
-                            except ValueError:
-                                st.error("Received an invalid response from the server.")
-                                st.write("**Response Status Code:**", chat_response.status_code)
-                                st.write("**Response Content:**", chat_response.text)
-                                st.stop()
 
-                            if chat_response.status_code == 200 and chat_result.get("status") == "success":
-                                assistant_reply = chat_result.get("answer", "")
-                                st.session_state.chat_history.append({
-                                    "role": "assistant",
-                                    "content": assistant_reply
-                                })
+                    with st.spinner("Generating response..."):
+
+                        try:
+
+                            chat_data = {
+
+                                "query": chat_query,
+
+                                "document_name": selected_doc
+
+                            }
+
+                            chat_response = st.session_state.session.post(
+
+                                f"{API_BASE_URL}/chat", json=chat_data
+
+                            )
+
+                            if chat_response.status_code == 200:
+
+                                chat_result = chat_response.json()
+
+                                if chat_result.get("status") == "success":
+
+                                    assistant_reply = chat_result.get("answer", "")
+
+                                    st.session_state.chat_history.append({
+
+                                        "role": "assistant",
+
+                                        "content": assistant_reply
+
+                                    })
+
+                                else:
+
+                                    st.error(
+                                        chat_result.get("message", "An error occurred while generating the response."))
+
                             else:
-                                st.error(chat_result.get("message", "An error occurred while generating the response."))
+
+                                try:
+
+                                    error_message = chat_response.json().get("message", "Failed to generate response.")
+
+                                except:
+
+                                    error_message = "Failed to generate response."
+
+                                st.error(error_message)
+
                         except Exception as e:
+
                             st.error(f"An error occurred: {e}")
 
-            # 4) Display conversation history
+            # ---------------------------- Display Conversation History ---------------------------- #
+
             st.subheader("Conversation History")
+
             if st.session_state.chat_history:
+
                 for msg in st.session_state.chat_history:
+
                     if msg["role"] == "user":
+
                         st.markdown(f"**You:** {msg['content']}")
+
                     else:
+
                         st.markdown(f"**{BOT_NAME}:** {msg['content']}")
+
             else:
+
                 st.info("No conversation yet. Type something above.")
 
-            # 5) Download conversation button
+            # ---------------------------- Download Conversation ---------------------------- #
+
             if st.session_state.chat_history:
+
                 # Convert chat to a single string
+
                 chat_text = []
+
                 for entry in st.session_state.chat_history:
                     role = "You" if entry["role"] == "user" else BOT_NAME
+
                     chat_text.append(f"{role}: {entry['content']}")
+
                 conversation_str = "\n\n".join(chat_text)
 
                 st.download_button(
+
                     label="Download Conversation",
+
                     data=conversation_str,
+
                     file_name="conversation.txt",
+
                     mime="text/plain"
+
                 )
 
     # Profile Page
@@ -1541,315 +1877,167 @@ else:
 
 
     elif selection == "Teams":
-
         if not st.session_state.logged_in:
-
             st.warning("Please log in to manage your teams.")
-
         else:
-
             st.title("Teams Management")
-
             # ---------------------------- Create Team ---------------------------- #
-
             st.subheader("Create a New Team")
-
             with st.form("create_team_form"):
-
                 team_name = st.text_input("Team Name", placeholder="e.g., Legal Team A")
-
                 member_user_ids = st.text_area(
-
                     "Add Members (Enter User IDs separated by commas)",
-
                     placeholder="UID0001, UID0002"
-
                 )
-
                 submit_create_team = st.form_submit_button("Create Team")
-
             if submit_create_team:
-
                 if not team_name.strip():
-
                     st.error("Please enter a valid team name.")
-
                 else:
-
                     # Parse member_user_ids
-
                     member_ids = [uid.strip() for uid in member_user_ids.split(",") if uid.strip()]
-
                     if not member_ids:
-
                         st.error("Please enter at least one member User ID.")
-
                     else:
-
                         create_team_data = {
-
                             "team_name": team_name.strip(),
-
                             "member_user_ids": member_ids
-
                         }
-
                         try:
-
                             create_team_resp = st.session_state.session.post(
-
                                 f"{API_BASE_URL}/documents/create_team",
-
                                 json=create_team_data
-
                             )
-
                             create_team_result = create_team_resp.json()
-
                             if create_team_resp.status_code == 201 and create_team_result.get("status") == "success":
-
                                 st.success(create_team_result.get("message"))
-
                                 st.info(f"New Team ID: {create_team_result.get('team_id')}")
-
-
                             else:
-
                                 st.error(create_team_result.get("message", "Failed to create team."))
-
                         except Exception as e:
-
                             st.error(f"An error occurred: {e}")
-
             st.markdown("---")
-
             # ---------------------------- List Teams ---------------------------- #
-
             st.subheader("My Teams")
-
             try:
-
                 response = st.session_state.session.get(f"{API_BASE_URL}/documents/get_teams")
-
                 if response.headers.get('Content-Type') == 'application/json':
-
                     result = response.json()
-
                     if response.status_code == 200 and result.get("status") == "success":
-
                         teams = result.get("teams", [])
-
                         if teams:
-
                             # Display teams in a table
-
                             team_df = pd.DataFrame(teams)
-
                             # Rename columns for better readability
-
                             team_df = team_df.rename(columns={
-
                                 "team_id": "Team ID",
-
                                 "team_name": "Team Name",
-
                                 "created_at": "Created At",
-
                                 "created_by": "Created By",
-
                                 "members": "Member IDs"
-
                             })
-
                             # Display only relevant columns
-
                             display_columns = ["Team ID", "Team Name", "Created At", "Created By"]
-
                             st.dataframe(team_df[display_columns].sort_values(by="Created At", ascending=False))
-
                             # ---------------------------- Actions ---------------------------- #
-
                             st.markdown("---")
-
                             st.subheader("Actions")
-
                             # Select a team for actions
-
                             selected_team_id = st.selectbox("Select Team ID for Actions", team_df["Team ID"])
-
                             # Fetch the selected team's details
-
                             selected_team = next((team for team in teams if team["team_id"] == selected_team_id), None)
-
                             if selected_team:
-
                                 team_action = st.selectbox("Choose Action", ["View Team", "Add Team Member"])
-
                                 if team_action == "View Team":
-
                                     if st.button("View Team Details"):
                                         st.session_state.selected_team = selected_team
-
                                         st.session_state.current_view = "Team Details"
 
-
                                 elif team_action == "Add Team Member":
-
                                     with st.form("add_member_form"):
-
                                         new_member_id = st.text_input("Enter User ID to Add")
-
                                         submit_add_member = st.form_submit_button("Add Member")
-
                                     if submit_add_member:
-
                                         if not new_member_id.strip():
-
                                             st.error("Please enter a valid User ID.")
-
                                         else:
-
                                             add_member_data = {
-
                                                 "team_id": selected_team_id,
-
                                                 "member_user_id": new_member_id.strip()
-
                                             }
-
                                             try:
-
                                                 add_member_resp = st.session_state.session.post(
-
                                                     f"{API_BASE_URL}/documents/add_team_member",
-
                                                     json=add_member_data
-
                                                 )
-
                                                 add_member_result = add_member_resp.json()
-
                                                 if add_member_resp.status_code == 200 and add_member_result.get(
                                                         "status") == "success":
-
                                                     st.success(add_member_result.get("message"))
-
-
                                                 else:
-
                                                     st.error(
                                                         add_member_result.get("message", "Failed to add team member."))
-
                                             except Exception as e:
-
                                                 st.error(f"An error occurred: {e}")
-
                             else:
-
                                 st.error("Selected team not found.")
-
                     else:
-
                         st.error(result.get("message", "Failed to fetch teams."))
-
                 else:
-
                     st.error("Received an invalid response from the server.")
-
                     st.write("**Response Status Code:**", response.status_code)
-
                     st.write("**Response Content:**", response.text)
-
                     st.stop()
-
             except requests.exceptions.ConnectionError:
-
                 st.error("Could not connect to the server. Please ensure the backend is running.")
-
             except Exception as e:
-
                 st.error(f"An error occurred while fetching teams: {e}")
-
             # ---------------------------- Team Details Page ---------------------------- #
-
             if st.session_state.current_view == "Team Details":
-
                 team = st.session_state.selected_team
-
                 if team:
-
                     st.markdown("---")
-
                     st.subheader(f"Team Details: {team.get('team_name')} ({team.get('team_id')})")
-
                     st.write(f"**Created By:** {team.get('created_by')}")
-
                     st.write(f"**Created At:** {team.get('created_at')}")
-
                     # Fetch team members' details
-
                     member_ids = team.get("members", [])
-
                     if member_ids:
-
                         try:
-
                             members_resp = st.session_state.session.get(
-
                                 f"{API_BASE_URL}/documents/get_team_members",
-
                                 params={"team_id": team.get("team_id")}
-
                             )
-
                             if members_resp.headers.get('Content-Type') == 'application/json':
-
                                 members_result = members_resp.json()
-
                                 if members_resp.status_code == 200 and members_result.get("status") == "success":
-
                                     members = members_result.get("members", [])
-
                                     if members:
-
                                         st.markdown("### Team Members")
-
                                         for member in members:
-
                                             member_col1, member_col2 = st.columns([1, 3])
-
                                             with member_col1:
-
                                                 # Display member's profile picture
-
                                                 if member.get("profile_picture_url"):
-
-                                                    st.image(
-
-                                                        member["profile_picture_url"],
-
-                                                        width=100,
-
-                                                        caption=member.get("name"),
-
-                                                        use_column_width=False
-
-                                                    )
-
-                                                else:
-
-                                                    st.image(
-
-                                                        "https://via.placeholder.com/100",
-
-                                                        width=100,
-
-                                                        caption=member.get("name"),
-
-                                                        use_column_width=False
-
-                                                    )
-
+                                                    user_id = member["user_id"]
+                                                    profile_url_response = st.session_state.session.get(f"{API_BASE_URL}/get_team_member_profile_picture?user_id={user_id}")
+                                                    if profile_url_response.headers.get('Content-Type') == 'application/json':
+                                                        profile_result = profile_url_response.json()
+                                                    if profile_result:
+                                                        profile_picture_url = profile_result.get("url", "")
+                                                        st.image(
+                                                            profile_picture_url,
+                                                            width=100,
+                                                            caption=member.get("name"),
+                                                            use_container_width=True
+                                                        )
+                                                    else:
+                                                        st.image(
+                                                            "https://via.placeholder.com/100",
+                                                            width=100,
+                                                            caption=member.get("name"),
+                                                            use_container_width=True
+                                                        )
                                             with member_col2:
 
                                                 st.markdown(f"**Name:** {member.get('name')}")
@@ -2092,6 +2280,102 @@ else:
                     st.error("Could not connect to the server. Please ensure the backend is running.")
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
+
+    # ---------------------------- Create Court Document Page ---------------------------- #
+
+    elif selection == "Create Court Document":
+        st.title("Create Court Document")
+        st.markdown("---")
+
+        # 1. Select Template
+        st.subheader("Select a Court Document Template")
+        try:
+            templates = [f for f in os.listdir(COURT_TEMPLATES_FOLDER) if f.endswith('.txt')]
+            if not templates:
+                st.warning(f"No templates found in the '{COURT_TEMPLATES_FOLDER}' folder.")
+                st.stop()
+
+            template_choice = st.selectbox("Choose a Template", templates)
+        except FileNotFoundError:
+            st.error(f"The folder '{COURT_TEMPLATES_FOLDER}' does not exist. Please create it and add .txt templates.")
+            st.stop()
+        except Exception as e:
+            st.error(f"An error occurred while fetching templates: {e}")
+            st.stop()
+
+        # 2. Read Template
+        template_path = os.path.join(COURT_TEMPLATES_FOLDER, template_choice)
+        try:
+            with open(template_path, 'r', encoding='utf-8') as file:
+                template_text = file.read()
+
+            # Find placeholders
+            placeholders = re.findall(r'\{(.*?)\}', template_text)
+            unique_placeholders = list(dict.fromkeys(placeholders))  # Remove duplicates while preserving order
+
+            if not unique_placeholders:
+                st.info("The selected template has no placeholders to fill.")
+                st.stop()
+        except UnicodeDecodeError as e:
+            st.error(f"An encoding error occurred while reading the template: {e}")
+            st.info("Please ensure the template is saved in UTF-8 without BOM.")
+            st.stop()
+        except Exception as e:
+            st.error(f"An error occurred while reading the template: {e}")
+            st.stop()
+
+        # 3. Generate Form
+        if unique_placeholders:
+            st.subheader("Fill in the Details")
+            with st.form("court_document_form"):
+                filled_data = {}
+                for placeholder in unique_placeholders:
+                    display_name = placeholder.replace('_', ' ').capitalize()
+                    if 'date' in placeholder.lower():
+                        filled_data[placeholder] = st.date_input(f"{display_name}", value=date.today())
+                    elif 'email' in placeholder.lower():
+                        filled_data[placeholder] = st.text_input(f"{display_name}", value="",
+                                                                 help="Enter a valid email address.")
+                    elif 'number' in placeholder.lower() or 'no' in placeholder.lower():
+                        filled_data[placeholder] = st.text_input(f"{display_name}", value="", help="Enter a number.")
+                    else:
+                        filled_data[placeholder] = st.text_input(f"{display_name}", value="")
+
+                submit_doc = st.form_submit_button("Generate .txt Document")
+
+            if submit_doc:
+                # Validate inputs
+                missing_fields = [key for key, value in filled_data.items() if not value]
+                if missing_fields:
+                    st.error(f"Please fill in all required fields: {', '.join(missing_fields)}")
+                    st.stop()
+
+                # Replace placeholders
+                filled_text = template_text
+                for key, value in filled_data.items():
+                    if isinstance(value, date):
+                        value = value.strftime("%d-%m-%Y")
+                    filled_text = filled_text.replace(f"{{{key}}}", str(value))
+
+                # Check for unreplaced placeholders
+                unreplaced_placeholders = re.findall(r'\{(.*?)\}', filled_text)
+                if unreplaced_placeholders:
+                    st.error(f"The following placeholders were not filled: {', '.join(unreplaced_placeholders)}")
+                    st.stop()
+
+                # Encode as UTF-8
+                encoded_text = filled_text.encode('utf-8')
+                txt_buffer = io.BytesIO(encoded_text)
+
+                # Provide download
+                st.download_button(
+                    label="Download Generated .txt Document",
+                    data=txt_buffer,
+                    file_name=f"{os.path.splitext(template_choice)[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                    mime="text/plain"
+                )
+        else:
+            st.info("No placeholders found in the selected template. You can directly download the document.")
 
     # ---------------------------- Document Viewer Page ---------------------------- #
     elif st.session_state.current_view == "Document Viewer":
