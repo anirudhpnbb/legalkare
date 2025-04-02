@@ -2,20 +2,21 @@
 
 import streamlit as st
 import requests
-from PIL import Image
 import os
 from datetime import datetime, date
 from dotenv import load_dotenv
 import pandas as pd
 from collections import defaultdict
 import json
-from fpdf import FPDF
 import io
 import re
-import chardet
-from io import BytesIO
-# Load environment variables from .env if present
+from streamlit_lottie import st_lottie
+import plotly.express as px
+from matplotlib import pyplot as plt
+
 load_dotenv()
+
+model = os.getenv("OPENAI_MODEL_NAME")
 
 # ---------------------------- Configuration ---------------------------- #
 API_BASE_URL = "http://127.0.0.1:5002"  # Change if needed
@@ -46,6 +47,8 @@ def init_session_state():
         st.session_state.current_view = "Main"  # Default view
     if 'selected_document' not in st.session_state:
         st.session_state.selected_document = None
+    if 'selected_widgets' not in st.session_state:
+        st.session_state.selected_widgets = None
 
 init_session_state()
 
@@ -90,13 +93,140 @@ tooltip_css = """
 """
 st.markdown(tooltip_css, unsafe_allow_html=True)
 
+# ---------------------------- Custom CSS for Tooltips and General Styling ---------------------------- #
+custom_css = """
+<style>
+    /* General Styling */
+    body {
+        background-color: #f0f2f6;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Hero Section */
+    .hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 50px 0;
+    }
+
+    .hero-text {
+        max-width: 600px;
+    }
+
+    .hero-text h1 {
+        font-size: 3rem;
+        color: #333333;
+    }
+
+    .hero-text p {
+        font-size: 1.2rem;
+        color: #555555;
+        margin-top: 20px;
+        line-height: 1.6;
+    }
+
+    /* Features Section */
+    .features {
+        padding: 50px 0;
+    }
+
+    .feature {
+        text-align: center;
+        padding: 20px;
+    }
+
+    .feature img {
+        width: 100px;
+        height: 100px;
+    }
+
+    .feature h3 {
+        margin-top: 20px;
+        font-size: 1.5rem;
+        color: #333333;
+    }
+
+    .feature p {
+        color: #555555;
+        margin-top: 10px;
+        line-height: 1.4;
+    }
+
+    /* Button Styling */
+    .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        font-size: 1rem;
+        color: #ffffff;
+        background-color: #1e88e5;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        text-decoration: none;
+    }
+
+    .btn:hover {
+        background-color: #1565c0;
+    }
+</style>
+"""
+
+st.markdown(custom_css, unsafe_allow_html=True)
+
+def load_lottieurl(url: str):
+    """
+    Load a Lottie animation from a URL.
+    """
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+def fetch_data(endpoint, user_id):
+    """ Helper function to fetch data from the Flask API """
+    response = requests.get(f'{API_BASE_URL}/{endpoint}/{user_id}')
+    if response.status_code == 200:
+        return response.json()
+    else:
+        st.error('Failed to fetch data')
+        return []
+
+def process_reviews(reviews):
+    """
+    Convert MongoDB extended JSON to a normal Python dict
+    and return a pandas DataFrame.
+    """
+    for review in reviews:
+        # Convert the ObjectId
+        if "_id" in review and "$oid" in review["_id"]:
+            review["_id"] = review["_id"]["$oid"]
+
+        # Convert the date
+        if "date" in review and "$date" in review["date"]:
+            # e.g. "2023-08-10T12:34:56Z"
+            iso_str = review["date"]["$date"]
+            review["date"] = datetime.fromisoformat(iso_str.replace("Z", ""))
+
+    return pd.DataFrame(reviews)
+
+def plot_reviews(df):
+    """ Plots the distribution of review ratings """
+    if not df.empty and 'rating' in df.columns:
+        fig, ax = plt.subplots()
+        df['rating'].value_counts().plot(kind='bar', ax=ax, color='skyblue')
+        ax.set_title('Review Ratings Distribution')
+        ax.set_xlabel('Ratings')
+        ax.set_ylabel('Frequency')
+        st.pyplot(fig)
+
 # ---------------------------- Sidebar Navigation ---------------------------- #
 st.sidebar.title("LegalKare")
 
-#
 if st.session_state.logged_in:
     if st.session_state.role == "client":
-        navigation_options = ["Home", "Book Appointment"]
+        navigation_options = ["Home", "Book Appointment", "Submit Review", "FAQs"]
     elif st.session_state.role == "lawyer":
         navigation_options = [
             "Home",
@@ -108,7 +238,8 @@ if st.session_state.logged_in:
             "Chat",
             "Profile",
             "Teams",
-            "View Appointments"
+            "Notifications",
+            "Dashboard",
         ]
     else:
         navigation_options = ["Home", "Profile"]
@@ -143,6 +274,113 @@ if st.session_state.logged_in:
 
         # 3) Stop execution so we don't reference session keys again
         st.stop()
+
+
+# ---------------------------- Home Page Function ---------------------------- #
+def home_page():
+    st.markdown("---")
+    st.image("logo.png", use_container_width=True, width=400)
+
+    # Load Lottie animation for the hero section
+    lottie_animation = load_lottieurl(
+        "https://assets9.lottiefiles.com/packages/lf20_jcikwtux.json")  # Replace with your chosen animation URL
+
+    # Hero Section
+    st.markdown('<div class="hero">', unsafe_allow_html=True)
+
+    # Hero Text
+    st.markdown('<div class="hero-text">', unsafe_allow_html=True)
+    st.markdown("### Welcome to **LegalKare**", unsafe_allow_html=True)
+    st.markdown("""
+        **LegalKare** is a comprehensive platform designed to assist lawyers and clients in managing and accessing legal services efficiently.
+
+        **Our Mission:** To bridge the gap between legal professionals and clients by providing a seamless, secure, and intuitive platform for all your legal needs.
+    """, unsafe_allow_html=True)
+
+    # Action Buttons
+    st.markdown("""
+        <a href="#features" class="btn">Learn More</a>
+        <a href="#register" class="btn">Get Started</a>
+    """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Hero Animation
+    st.markdown('<div>', unsafe_allow_html=True)
+    st_lottie(lottie_animation, height=300, key="hero_animation")
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Features Section
+    st.markdown('<div class="features" id="features">', unsafe_allow_html=True)
+    st.markdown("### Features", unsafe_allow_html=True)
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+    # Create columns for features
+    feature_cols = st.columns(3)
+
+    features = [
+        {
+            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/user-male-circle.png",
+            "title": "User Registration & Authentication",
+            "description": "Secure and seamless registration process ensuring your data privacy."
+        },
+        {
+            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/user-male-circle.png",
+            "title": "Profile Management",
+            "description": "Manage your personal and professional information with ease."
+        },
+        {
+            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/upload.png",
+            "title": "Upload & Manage Documents",
+            "description": "Efficiently upload, organize, and access your legal documents."
+        },
+        {
+            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/search.png",
+            "title": "Powerful Search Functionality",
+            "description": "Find the information you need quickly with our advanced search tools."
+        },
+        {
+            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/chat.png",
+            "title": "Chat with Legal LLM",
+            "description": "Get instant assistance and legal advice through our intelligent chat system."
+        },
+        {
+            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/calendar.png",
+            "title": "Book Appointments",
+            "description": "Schedule meetings with lawyers at your convenience."
+        }
+    ]
+
+    for idx, feature in enumerate(features):
+        with feature_cols[idx % 3]:
+            st.markdown('<div class="feature">', unsafe_allow_html=True)
+            st.image(feature["icon"], width=100)
+            st.markdown(f"### {feature['title']}", unsafe_allow_html=True)
+            st.markdown(f"{feature['description']}", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Optional: Add another animation or decorative elements below
+    st.markdown('<div>', unsafe_allow_html=True)
+    lottie_decor = load_lottieurl(
+        "https://assets10.lottiefiles.com/packages/lf20_jcikwtux.json")  # Replace with another animation if desired
+    st_lottie(lottie_decor, height=200, key="decor_animation")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Register Section (Anchor)
+    st.markdown('<div id="register">', unsafe_allow_html=True)
+    st.markdown("### Ready to Get Started?", unsafe_allow_html=True)
+    st.markdown("""
+        Join **LegalKare** today and take the first step towards efficient and effective legal management.
+    """, unsafe_allow_html=True)
+    st.markdown("""
+        <a href="Register" class="btn">Register Now</a>
+        <a href="Login" class="btn">Login</a>
+    """, unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 
 # ---------------------------- Pages ---------------------------- #
 def view_document_page(document):
@@ -641,20 +879,10 @@ if st.session_state.current_view == "Document Viewer":
     else:
         st.error("No document selected to view.")
 else:
+    # Home Page
     if selection == "Home":
-        st.image("logo.png", use_container_width=True)
-        st.title("Welcome to LegalKare")
-        st.write("""
-        **LegalKare** is a platform designed to assist lawyers and clients in managing and accessing legal services efficiently.
-    
-        **Features:**
-        - User Registration and Authentication
-        - Profile Management
-        - Upload and Manage Documents
-        - Powerful Search Functionality
-        - Chat with Legal LLM for Assistance
-        - Book Appointments with Lawyers
-        """)
+        home_page()
+
 
     # Register Page
     elif selection == "Register":
@@ -731,6 +959,8 @@ else:
                         st.error(result.get("message"))
                 except Exception as e:
                     st.error(f"An error occurred: {e}")
+
+
 
     # Login Page
     elif selection == "Login":
@@ -902,9 +1132,8 @@ else:
                                 "_id": "Document ID",
                                 "doc_filename": "Filename",
                                 "upload_date": "Upload Date",
-                                "is_private": "Private"
                             })
-                            doc_df = doc_df[["Document ID", "Filename", "Upload Date", "Private"]]
+                            doc_df = doc_df[["Document ID", "Filename", "Upload Date"]]
                             st.dataframe(doc_df)
 
                             # ---------------------------- Actions ---------------------------- #
@@ -1028,103 +1257,107 @@ else:
             except Exception as e:
                 st.error(f"An error occurred: {e}")
 
-            if documents:
-                st.markdown("---")
-                st.subheader("View Document")
-                selected_doc_for_view = st.selectbox("Select Document to View",
-                                                     [doc.get("doc_filename") for doc in documents])
-                doc_details = next((doc for doc in documents if doc.get("doc_filename") == selected_doc_for_view), None)
-                if doc_details:
-                    if st.button("View Document"):
-                        st.session_state.current_view = "Document Viewer"
-                        st.session_state.selected_document = doc_details
-            else:
-                st.info("No documents uploaded yet.")
-
 
 
 
     # ---------------------------- View Documents Page ---------------------------- #
     elif selection == "View Documents":
-        if not st.session_state.logged_in:
-            st.warning("Please log in to view your documents.")
-        else:
-            st.title("View Documents")
+        st.title("View Documents")
 
-            # ---------------------------- List Folders ---------------------------- #
-            st.subheader("Folders and Subfolders")
+        # ---------------------------- List Folders ---------------------------- #
+        st.subheader("Folders and Subfolders")
 
-            # Get documents from the backend
-            try:
-                response = st.session_state.session.get(f"{API_BASE_URL}/my_documents")
-                if response.status_code == 200:
-                    result = response.json()
-                    if result.get("status") == "success":
-                        documents = result.get("documents", [])
+        # Get documents from the backend
+        try:
+            response = st.session_state.session.get(f"{API_BASE_URL}/my_documents")
+            if response.status_code == 200:
+                result = response.json()
+                if result.get("status") == "success":
+                    documents = result.get("documents", [])
 
-                        # Create folder structure
-                        folders = {}
-                        for doc in documents:
-                            folder_path = doc.get("folder", "")
-                            if folder_path:
-                                parts = folder_path.split('/')
-                                top_level_folder = parts[0]
-                                subfolder = parts[1] if len(parts) > 1 else None
+                    # Create folder structure
+                    folders = {}
+                    for doc in documents:
+                        folder_path = doc.get("folder", "")
+                        if folder_path:
+                            parts = folder_path.split('/')
+                            top_level_folder = parts[0]
+                            subfolder = parts[1] if len(parts) > 1 else None
 
-                                if top_level_folder not in folders:
-                                    folders[top_level_folder] = {"subfolders": {}, "files": []}
+                            if top_level_folder not in folders:
+                                folders[top_level_folder] = {"subfolders": {}, "files": []}
 
-                                if subfolder:
-                                    if subfolder not in folders[top_level_folder]["subfolders"]:
-                                        folders[top_level_folder]["subfolders"][subfolder] = []
-                                    folders[top_level_folder]["subfolders"][subfolder].append(doc)
-                                else:
-                                    folders[top_level_folder]["files"].append(doc)
+                            if subfolder:
+                                if subfolder not in folders[top_level_folder]["subfolders"]:
+                                    folders[top_level_folder]["subfolders"][subfolder] = []
+                                folders[top_level_folder]["subfolders"][subfolder].append(doc)
+                            else:
+                                folders[top_level_folder]["files"].append(doc)
 
-                        # Display top-level folders
-                        for folder_name, folder_data in folders.items():
-                            with st.expander(f"📂 {folder_name}"):
-                                # Show files in this folder
-                                if folder_data["files"]:
-                                    st.markdown("### Files:")
-                                    for file in folder_data["files"]:
-                                        file_name = file.get("doc_filename")
-                                        unique_key = file.get("_id")  # Use the _id as the unique key
-                                        if st.button(f"📄 {file_name}", key=f"file_{unique_key}"):
-                                            # When file is clicked, set it as selected
-                                            st.session_state.selected_document = file
-                                            st.session_state.current_view = "Document Viewer"
-                                            st.write(f"Viewing document: {file_name}")
-                                else:
-                                    st.info(f"No files found in {folder_name}")
 
-                                # Show subfolders in this folder
-                                if folder_data["subfolders"]:
-                                    # Create a dropdown for subfolders inside the current folder
-                                    subfolder_selection = st.selectbox(f"Select Subfolder in {folder_name}",
-                                                                       ["-- Select Subfolder --"] + list(
-                                                                           folder_data["subfolders"].keys()))
-                                    if subfolder_selection != "-- Select Subfolder --":
-                                        subfolder_files = folder_data["subfolders"][subfolder_selection]
-                                        st.markdown(f"### Files in {subfolder_selection} Subfolder:")
-                                        for file in subfolder_files:
-                                            file_name = file.get("doc_filename")
-                                            unique_key = file.get("_id")  # Use the _id as the unique key
-                                            if st.button(f"📄 {file_name}", key=f"subfolder_file_{unique_key}"):
-                                                # When file in subfolder is clicked, set it as selected
-                                                st.session_state.selected_document = file
-                                                st.session_state.current_view = "Document Viewer"
-                                                st.write(f"Viewing document: {file_name}")
+                    # Function to render files with highlighting
+                    def render_files(files, key_prefix):
+                        for file in files:
+                            file_name = file.get("doc_filename")
+                            unique_key = file.get("_id")  # Use the _id as the unique key
+                            is_selected = st.session_state.selected_document and st.session_state.selected_document.get(
+                                "_id") == unique_key
 
-                    else:
-                        st.error("Failed to fetch documents from the server.")
+                            # Render the button
+                            if st.button(f"📄 {file_name}", key=f"{key_prefix}_{unique_key}"):
+                                # When file is clicked, set it as selected
+                                st.session_state.selected_document = file
+                                st.session_state.current_view = "Document Viewer"
+
+                            # Apply highlighting if selected
+                            if is_selected:
+                                st.markdown(
+                                    f"<div style='background-color: #d3d3d3; padding: 5px; border-radius: 5px; margin-top: -35px; margin-bottom: 15px;'>📄 {file_name}</div>",
+                                    unsafe_allow_html=True
+                                )
+
+
+                    # Display top-level folders
+                    for folder_name, folder_data in folders.items():
+                        with st.expander(f"📂 {folder_name}"):
+                            # Show files in this folder
+                            if folder_data["files"]:
+                                st.markdown("### Files:")
+                                render_files(folder_data["files"], f"file_{folder_name}")
+                            else:
+                                st.info(f"No files found in {folder_name}")
+
+                            # Show subfolders in this folder
+                            if folder_data["subfolders"]:
+                                subfolder_selection = st.selectbox(
+                                    f"Select Subfolder in {folder_name}",
+                                    ["-- Select Subfolder --"] + list(folder_data["subfolders"].keys()),
+                                    key=f"select_{folder_name}"
+                                )
+                                if subfolder_selection != "-- Select Subfolder --":
+                                    subfolder_files = folder_data["subfolders"][subfolder_selection]
+                                    st.markdown(f"### Files in {subfolder_selection} Subfolder:")
+                                    render_files(subfolder_files, f"subfolder_file_{subfolder_selection}")
+
                 else:
-                    st.error(f"Failed to fetch documents. Status code: {response.status_code}")
+                    st.error("Failed to fetch documents from the server.")
+            else:
+                st.error(f"Failed to fetch documents. Status code: {response.status_code}")
 
-            except requests.exceptions.ConnectionError:
-                st.error("Could not connect to the server. Please ensure the backend is running.")
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
+        except requests.exceptions.ConnectionError:
+            st.error("Could not connect to the server. Please ensure the backend is running.")
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
+
+    # ---------------------------- Document Viewer ---------------------------- #
+    if st.session_state.current_view == "Document Viewer":
+        selected_doc = st.session_state.selected_document
+        if selected_doc:
+            st.title(f"Viewing Document: {selected_doc.get('doc_filename')}")
+            # Add your document viewing logic here
+            st.write(selected_doc)
+        else:
+            st.warning("No document selected.")
 
 
 
@@ -1217,7 +1450,6 @@ else:
                                         except:
                                             summary = "No summary available."
 
-                                        print(filename, similarity, summary)
 
                                         grouped_results[filename].append({
                                             "similarity": similarity,
@@ -1404,12 +1636,10 @@ else:
                     response = st.session_state.session.get(f"{API_BASE_URL}/get_prompts",
 
                                                             params={"type": prompt_type.lower()})
-                    print(response, prompt_type, "__________________________________")
 
                     if response.status_code == 200:
 
                         prompts_data = response.json()  # This should be a list
-                        print(prompts_data)
 
                         if isinstance(prompts_data, list):  # Check if it's a list
 
@@ -1434,7 +1664,6 @@ else:
                     prompts = []
 
             if prompts:
-                print(prompts)
 
                 prompt_titles = [f"{p['title']} (ID: {p['prompt_id']})" for p in prompts]
 
@@ -1591,6 +1820,7 @@ else:
             # ---------------------------- Chat Input ---------------------------- #
 
             chat_query = st.text_input("Enter your question or query", key="chat_input")
+            st.write(f"Selected doc: {selected_doc!r}")
 
             if st.button("Send"):
 
@@ -2096,190 +2326,871 @@ else:
 
                         st.session_state.selected_team = None
 
-    elif selection == "Book Appointment":
-        if not st.session_state.logged_in:
-            st.warning("Please log in to book appointments.")
-        elif st.session_state.role != "client":
-            st.error("Only clients can book appointments.")
+
+    elif selection == "Notifications":
+
+        if not st.session_state.get('logged_in', False):
+
+            st.warning("Please log in to view notifications.")
+
         else:
-            st.title("Book an Appointment")
 
-            # 1) We use a session-state variable to track whether we are
-            #    in "grid mode" or viewing a single lawyer's details.
-            if "selected_lawyer_id" not in st.session_state:
-                st.session_state.selected_lawyer_id = None
+            st.title("Notifications")
 
-            # 2) If no lawyer is selected yet, show the GRID of lawyers
-            if st.session_state.selected_lawyer_id is None:
-                st.subheader("Available Lawyers")
+            user_id = st.session_state.get('user_id')  # Ensure 'user_id' is set in session_state
 
-                # Fetch all lawyers
-                try:
-                    response = st.session_state.session.get(f"{API_BASE_URL}/profile/list_lawyers")
-                    result = response.json()
-                    if response.status_code == 200 and result.get("status") == "success":
-                        lawyers = result.get("lawyers", [])
-                        if not lawyers:
-                            st.info("No lawyers available at the moment.")
-                            st.stop()
-                    else:
-                        st.error(result.get("message"))
-                        st.stop()
-                except Exception as e:
-                    st.error(f"An error occurred while fetching lawyers: {e}")
-                    st.stop()
+            if not user_id:
 
-                # Display lawyers in a grid
-                import math
-
-                num_cols = 3  # how many columns per row
-                total_lawyers = len(lawyers)
-                rows_needed = math.ceil(total_lawyers / num_cols)
-
-                for row_idx in range(rows_needed):
-                    # create a row of columns
-                    cols = st.columns(num_cols, gap="large")
-                    for col_idx in range(num_cols):
-                        index = row_idx * num_cols + col_idx
-                        if index < total_lawyers:
-                            lawyer = lawyers[index]
-                            with cols[col_idx]:
-                                # Show lawyer's profile picture if available
-                                if lawyer.get("profile_picture_url"):
-                                    st.image(
-                                        lawyer["profile_picture_url"],
-                                        use_container_width=True  # Replaces deprecated use_column_width
-                                    )
-                                else:
-                                    st.image(
-                                        "https://via.placeholder.com/150",
-                                        use_container_width=True
-                                    )
-
-                                st.write(f"**Name:** {lawyer.get('name')}")
-                                st.write(f"**Specialization:** {lawyer.get('specialization', 'N/A')}")
-                                st.write(f"**Experience:** {lawyer.get('years_of_experience', 0)} years")
-
-                                # A button to view details
-                                # We embed the user_id in the button key or label
-                                if st.button(
-                                    f"View Details {lawyer['user_id']}",
-                                    key=f"view_{lawyer['user_id']}"
-                                ):
-                                    st.session_state.selected_lawyer_id = lawyer["user_id"]
-                                    st.session_state.lawyers_cache = lawyers  # store entire list for detail mode
+                st.error("User ID not found in session. Please log in again.")
 
             else:
-                # 3) If a lawyer is selected, show detail view + appointment booking
-                selected_lawyer_id = st.session_state.selected_lawyer_id
-                lawyers = st.session_state.get("lawyers_cache", [])
 
-                # Find the selected lawyer in the cached list
-                selected_lawyer = next((lw for lw in lawyers if lw["user_id"] == selected_lawyer_id), None)
-                if not selected_lawyer:
-                    st.error("Selected lawyer not found in the list.")
-                    # Offer a button to go back to grid
-                    if st.button("Back to List"):
-                        st.session_state.selected_lawyer_id = None
-                    st.stop()
+                with st.spinner("Fetching your notifications..."):
 
-                # Show detailed info
-                st.subheader(f"Lawyer Details: {selected_lawyer.get('name')}")
-                detail_col1, detail_col2 = st.columns([1, 2])
+                    try:
 
-                with detail_col1:
-                    if selected_lawyer.get("profile_picture_url"):
-                        st.image(selected_lawyer["profile_picture_url"], use_container_width=True)
+                        # Fetch notifications from the backend
+
+                        response = st.session_state.session.get(
+
+                            f"{API_BASE_URL}/notifications",
+
+                            # If using token-based auth, include headers
+
+                            # headers={"Authorization": f"Bearer {st.session_state.get('token')}"}
+
+                        )
+
+                        try:
+
+                            result = response.json()
+
+                        except ValueError:
+
+                            st.error("Received an invalid response from the server.")
+
+                            st.write("**Response Status Code:**", response.status_code)
+
+                            st.write("**Response Content:**", response.text)
+
+                            st.stop()
+
+                        if response.status_code == 200 and result.get("status") == "success":
+
+                            notifications = result.get("notifications", [])
+
+                            if notifications:
+
+                                # Display notifications
+
+                                st.markdown("## Team Invitations")
+
+                                for notif in notifications:
+
+                                    st.markdown("---")
+
+                                    st.markdown(f"### Team Name: {notif['team_name']}")
+
+                                    st.write(f"**Team ID:** {notif['team_id']}")
+
+                                    st.write(f"**Invited By:** {notif['invited_by']}")
+
+                                    st.write(f"**Invited At:** {notif['invited_at']}")
+
+                                    # Action Buttons: Join or Exit
+
+                                    action = st.radio(
+
+                                        label="Choose Action",
+
+                                        options=["Select Action", "Join Team", "Exit Team"],
+
+                                        key=f"action_radio_{notif['notification_id']}",
+
+                                        horizontal=True
+
+                                    )
+
+                                    if action == "Join Team":
+
+                                        if st.button("Confirm Join", key=f"join_button_{notif['notification_id']}"):
+
+                                            with st.spinner("Joining the team..."):
+
+                                                try:
+
+                                                    respond_data = {
+
+                                                        "notification_id": notif['notification_id'],
+
+                                                        "response": "join"
+
+                                                    }
+
+                                                    respond_resp = st.session_state.session.post(
+
+                                                        f"{API_BASE_URL}/notifications/respond",
+
+                                                        json=respond_data
+
+                                                        # If using token-based auth, include headers
+
+                                                        # headers={"Authorization": f"Bearer {st.session_state.get('token')}"}
+
+                                                    )
+
+                                                    try:
+
+                                                        respond_result = respond_resp.json()
+
+                                                    except ValueError:
+
+                                                        st.error("Received an invalid response from the server.")
+
+                                                        st.write("**Response Status Code:**", respond_resp.status_code)
+
+                                                        st.write("**Response Content:**", respond_resp.text)
+
+                                                        st.stop()
+
+                                                    if respond_resp.status_code == 200 and respond_result.get(
+                                                            "status") == "success":
+
+                                                        st.success(respond_result.get("message",
+                                                                                      "Successfully joined the team."))
+
+                                                          # Refresh notifications
+
+                                                    else:
+
+                                                        st.error(
+                                                            respond_result.get("message", "Failed to join the team."))
+
+                                                except Exception as e:
+
+                                                    st.error(f"An error occurred: {e}")
+
+
+                                    elif action == "Exit Team":
+
+                                        if st.button("Confirm Exit", key=f"exit_button_{notif['notification_id']}"):
+
+                                            with st.spinner("Exiting the team..."):
+
+                                                try:
+
+                                                    respond_data = {
+
+                                                        "notification_id": notif['notification_id'],
+
+                                                        "response": "exit"
+
+                                                    }
+
+                                                    respond_resp = st.session_state.session.post(
+
+                                                        f"{API_BASE_URL}/notifications/respond",
+
+                                                        json=respond_data
+
+                                                        # If using token-based auth, include headers
+
+                                                        # headers={"Authorization": f"Bearer {st.session_state.get('token')}"}
+
+                                                    )
+
+                                                    try:
+
+                                                        respond_result = respond_resp.json()
+
+                                                    except ValueError:
+
+                                                        st.error("Received an invalid response from the server.")
+
+                                                        st.write("**Response Status Code:**", respond_resp.status_code)
+
+                                                        st.write("**Response Content:**", respond_resp.text)
+
+                                                        st.stop()
+
+                                                    if respond_resp.status_code == 200 and respond_result.get(
+                                                            "status") == "success":
+
+                                                        st.success(respond_result.get("message",
+                                                                                      "Successfully exited the team."))
+
+                                                          # Refresh notifications
+
+                                                    else:
+
+                                                        st.error(
+                                                            respond_result.get("message", "Failed to exit the team."))
+
+                                                except Exception as e:
+
+                                                    st.error(f"An error occurred: {e}")
+
+                            else:
+
+                                st.info("You have no new notifications.")
+
+                        else:
+
+                            st.error(result.get("message", "Failed to fetch notifications."))
+
+                    except requests.exceptions.ConnectionError:
+
+                        st.error("Could not connect to the server. Please ensure the backend is running.")
+
+                    except Exception as e:
+
+                        st.error(f"An error occurred while fetching notifications: {e}")
+
+
+
+    elif selection == "Book Appointment":
+
+        # 1) Check login & role
+
+        if not st.session_state.logged_in:
+
+            st.warning("Please log in to book appointments.")
+
+            st.stop()
+
+        elif st.session_state.role != "client":
+
+            st.error("Only clients can book appointments.")
+
+            st.stop()
+
+        st.title("Book an Appointment")
+
+        # 2) Maintain session state for selected lawyer & cached list
+
+        if "selected_lawyer_id" not in st.session_state:
+            st.session_state.selected_lawyer_id = None
+
+        if "lawyers_cache" not in st.session_state:
+            st.session_state.lawyers_cache = []
+
+        # 3) If no lawyer is selected, show the "case details" or "view all" interface
+
+        if st.session_state.selected_lawyer_id is None:
+
+            st.subheader("Find a Lawyer")
+
+            # --- Text area for user’s case details (the "query") ---
+
+            case_details = st.text_area(
+
+                "Describe your case (optional if you just want to see all lawyers)",
+
+                help="Type your case details to get lawyer recommendations."
+
+            )
+
+            # --- Buttons ---
+
+            colA, colB = st.columns(2)
+
+            with colA:
+
+                recommend_clicked = st.button("Recommend a Lawyer")
+
+            with colB:
+
+                view_all_clicked = st.button("View All Lawyers")
+
+            # --- Logic to clear or populate st.session_state.lawyers_cache ---
+
+            # If neither button was clicked, we clear or skip showing lawyers:
+
+            if not recommend_clicked and not view_all_clicked:
+
+                # We don't show any lawyers yet. Possibly clear existing cache if you want a fresh start:
+
+                # st.session_state.lawyers_cache = []
+
+                # st.write("Please either enter a case query or click 'View All Lawyers'.")
+
+                pass
+
+            else:
+
+                # If "Recommend a Lawyer" is clicked:
+
+                if recommend_clicked:
+
+                    if not case_details.strip():
+
+                        st.warning("Please enter some case details before requesting recommendations.")
+
                     else:
-                        st.image("https://via.placeholder.com/150", use_container_width=True)
 
-                with detail_col2:
-                    st.write(f"**Name:** {selected_lawyer.get('name')}")
-                    st.write(f"**Specialization:** {selected_lawyer.get('specialization', 'N/A')}")
-                    st.write(f"**Court(s):** {selected_lawyer.get('court', 'N/A')}")
-                    st.write(f"**Experience:** {selected_lawyer.get('years_of_experience', 0)} years")
-                    st.write(f"**Email:** {selected_lawyer.get('email')}")
-                    # Add more fields as needed
+                        try:
 
-                st.markdown("---")
+                            response = st.session_state.session.post(
 
-                # Offer a button to go back to the grid
+                                f"{API_BASE_URL}/recommend_lawyer",
+
+                                json={"case_details": case_details}
+
+                            )
+
+                            result = response.json()
+
+                            if response.status_code == 200 and result.get("status") == "success":
+
+                                st.session_state.lawyers_cache = result.get("recommendations", [])
+
+                                if not st.session_state.lawyers_cache:
+
+                                    st.warning("No relevant lawyers found for your query.")
+
+                                else:
+
+                                    st.success("Showing recommended lawyers based on your case details.")
+
+                            else:
+
+                                st.error(result.get("message", "Failed to get recommendations."))
+
+                        except Exception as e:
+
+                            st.error(f"An error occurred while recommending a lawyer: {e}")
+
+                # If "View All Lawyers" is clicked:
+
+                if view_all_clicked:
+
+                    try:
+
+                        response = st.session_state.session.get(f"{API_BASE_URL}/profile/list_lawyers")
+
+                        result = response.json()
+
+                        if response.status_code == 200 and result.get("status") == "success":
+
+                            st.session_state.lawyers_cache = result.get("lawyers", [])
+
+                        else:
+
+                            st.error(result.get("message", "Failed to fetch lawyers."))
+
+                    except Exception as e:
+
+                        st.error(f"An error occurred while fetching lawyers: {e}")
+
+            # --- Now display the lawyers in the cache (if any) ---
+
+            lawyers = st.session_state.lawyers_cache
+
+            if lawyers:
+
+                import math
+
+                num_cols = 3
+
+                total_lawyers = len(lawyers)
+
+                rows_needed = math.ceil(total_lawyers / num_cols)
+
+                st.write(f"**Showing {total_lawyers} lawyer(s).**")
+
+                for row_idx in range(rows_needed):
+
+                    cols = st.columns(num_cols, gap="large")
+
+                    for col_idx in range(num_cols):
+
+                        index = row_idx * num_cols + col_idx
+
+                        if index < total_lawyers:
+
+                            lawyer = lawyers[index]
+
+                            with cols[col_idx]:
+
+                                # Show lawyer's picture
+
+                                pic_url = lawyer.get("profile_picture_url")
+
+                                if pic_url:
+
+                                    st.image(pic_url, use_column_width=True)
+
+                                else:
+
+                                    st.image("https://via.placeholder.com/150", use_column_width=True)
+
+                                st.write(f"**Name:** {lawyer.get('name')}")
+
+                                st.write(f"**Location:** {lawyer.get('location', 'N/A')}")
+
+                                st.write(f"**Specialization:** {lawyer.get('specialization', 'N/A')}")
+
+                                st.write(f"**Experience:** {lawyer.get('years_of_experience', 0)} years")
+
+                                # Use lawyer["lawyer_id"] if your backend returns "lawyer_id"
+
+                                lawyer_id = lawyer.get("lawyer_id")
+
+                                if not lawyer_id:
+
+                                    st.warning("This lawyer record has no 'lawyer_id'.")
+
+                                else:
+
+                                    if st.button(f"View Details {lawyer_id}", key=f"view_{lawyer_id}"):
+                                        st.session_state.selected_lawyer_id = lawyer_id
+
+                                        st.experimental_rerun()
+
+
+        else:
+
+            # 4) If a lawyer is selected, show detail view & booking form
+
+            selected_lawyer_id = st.session_state.selected_lawyer_id
+
+            lawyers = st.session_state.lawyers_cache
+
+            selected_lawyer = next((lw for lw in lawyers if lw.get("lawyer_id") == selected_lawyer_id), None)
+
+            if not selected_lawyer:
+
+                st.error("Selected lawyer not found. Please go back and choose again.")
+
                 if st.button("Back to List"):
                     st.session_state.selected_lawyer_id = None
-                    st.stop()
 
-                st.subheader("Book an Appointment")
+                st.stop()
 
-                from datetime import date
-                selected_date = st.date_input("Choose a Date", min_value=date.today())
-                time_slot_options = [f"{hour}:00-{hour + 1}:00" for hour in range(9, 18)]  # 9 AM to 5 PM
-                selected_time_slot = st.selectbox("Choose a Time Slot", time_slot_options)
+            st.subheader(f"Lawyer Details: {selected_lawyer.get('name')}")
 
-                if st.button("Book Appointment"):
-                    booking_data = {
-                        "lawyer_id": selected_lawyer_id,
-                        "date": selected_date.strftime("%Y-%m-%d"),
-                        "time_slot": selected_time_slot
-                    }
-                    with st.spinner("Booking your appointment..."):
-                        try:
-                            response = st.session_state.session.post(
-                                f"{API_BASE_URL}/profile/book_appointment",
-                                json=booking_data
-                            )
-                            result = response.json()
-                            if response.status_code == 200 and result.get("status") == "success":
-                                st.success(result.get("message"))
-                            elif response.status_code == 206:
-                                st.warning(result.get("message"))
-                            else:
-                                st.error(result.get("message"))
-                        except Exception as e:
-                            st.error(f"An error occurred while booking the appointment: {e}")
+            detail_col1, detail_col2 = st.columns([1, 2])
+
+            with detail_col1:
+
+                pic_url = selected_lawyer.get("profile_picture_url")
+
+                if pic_url:
+
+                    st.image(pic_url, use_column_width=True)
+
+                else:
+
+                    st.image("https://via.placeholder.com/150", use_column_width=True)
+
+            with detail_col2:
+
+                st.write(f"**Name:** {selected_lawyer.get('name')}")
+
+                st.write(f"**Location:** {selected_lawyer.get('location', 'N/A')}")
+
+                st.write(f"**Specialization:** {selected_lawyer.get('specialization', 'N/A')}")
+
+                st.write(f"**Court:** {selected_lawyer.get('court', 'N/A')}")
+
+                st.write(f"**Experience:** {selected_lawyer.get('years_of_experience', 0)} years")
+
+                st.write(f"**Email:** {selected_lawyer.get('email', 'N/A')}")
+
+            st.markdown("---")
+
+            if st.button("Back to List"):
+                st.session_state.selected_lawyer_id = None
+
+                st.experimental_rerun()
+
+            st.subheader("Book an Appointment")
+
+            from datetime import date
+
+            selected_date = st.date_input("Choose a Date", min_value=date.today())
+
+            time_slot_options = [f"{hour}:00-{hour + 1}:00" for hour in range(9, 18)]
+
+            selected_time_slot = st.selectbox("Choose a Time Slot", time_slot_options)
+
+            if st.button("Book Appointment"):
+
+                booking_data = {
+
+                    "lawyer_id": selected_lawyer_id,
+
+                    "date": selected_date.strftime("%Y-%m-%d"),
+
+                    "time_slot": selected_time_slot
+
+                }
+
+                with st.spinner("Booking your appointment..."):
+
+                    try:
+
+                        response = st.session_state.session.post(
+
+                            f"{API_BASE_URL}/profile/book_appointment",
+
+                            json=booking_data
+
+                        )
+
+                        result = response.json()
+
+                        if response.status_code == 200 and result.get("status") == "success":
+
+                            st.success(result.get("message"))
+
+                        elif response.status_code == 206:
+
+                            st.warning(result.get("message"))
+
+                        else:
+
+                            st.error(result.get("message", "Appointment booking failed."))
+
+
+                    except Exception as e:
+
+                        st.error(f"An error occurred while booking the appointment: {e}")
 
 
     # View Appointments Page (For Lawyers)
-    elif selection == "View Appointments":
-        if not st.session_state.logged_in:
-            st.warning("Please log in to view appointments.")
-        elif st.session_state.role != "lawyer":
-            st.error("Only lawyers can view appointments.")
-        else:
-            st.title("View Appointments")
-            with st.spinner("Fetching your appointments..."):
-                try:
-                    response = st.session_state.session.get(f"{API_BASE_URL}/profile/view_appointments")
-                    try:
-                        result = response.json()
-                    except ValueError:
-                        st.error("Received an invalid response from the server.")
-                        st.write("**Response Status Code:**", response.status_code)
-                        st.write("**Response Content:**", response.text)
-                        st.stop()
+    elif selection == "Dashboard":
+        st.title("My Dashboard")
 
-                    if response.status_code == 200 and result.get("status") == "success":
-                        appointments = result.get("appointments", [])
-                        if appointments:
-                            df = pd.DataFrame(appointments)
-                            # Format datetime fields
-                            if 'date' in df.columns and 'time_slot' in df.columns:
-                                df['Appointment Time'] = df['date'] + ' ' + df['time_slot']
-                            if 'created_at' in df.columns:
-                                df['Created At'] = pd.to_datetime(df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
-                            display_columns = ['appointment_id', 'client_name', 'Appointment Time', 'status', 'Created At']
-                            if 'client_name' not in df.columns:
-                                df['client_name'] = df.get('client_name', 'N/A')
-                            if 'status' not in df.columns:
-                                df['status'] = df.get('status', 'N/A')
-                            st.dataframe(df[display_columns].sort_values(by='Appointment Time', ascending=False))
-                        else:
-                            st.info("No appointments booked yet.")
-                    else:
-                        st.error(result.get("message"))
-                except requests.exceptions.ConnectionError:
-                    st.error("Could not connect to the server. Please ensure the backend is running.")
-                except Exception as e:
-                    st.error(f"An error occurred: {e}")
+        if st.session_state.get('logged_in', False) and st.session_state.get('role', '') == 'lawyer':
+            user_id = st.session_state['user_id']
+
+            # Multi-select for which widgets to display
+            selected_widgets = st.multiselect(
+                'Select widgets to display:',
+                ['Appointments', 'Profile Reviews'],
+                default=st.session_state.get('selected_widgets', [])
+            )
+        if "Appointments" in selected_widgets:
+            if not st.session_state.get('logged_in', False):
+                st.warning("Please log in to view appointments.")
+            elif st.session_state.get('role', '').lower() != "lawyer":
+                st.error("Only lawyers can view appointments.")
+            else:
+                st.title("View Appointments")
+                with st.spinner("Fetching your appointments..."):
+                    try:
+                        # Fetch appointments from the backend
+                        response = st.session_state.session.get(f"{API_BASE_URL}/profile/view_appointments")
+                        try:
+                            result = response.json()
+                        except ValueError:
+                            st.error("Received an invalid response from the server.")
+                            st.write("**Response Status Code:**", response.status_code)
+                            st.write("**Response Content:**", response.text)
+                            st.stop()
+
+                        if response.status_code == 200 and result.get("status") == "success":
+                            appointments = result.get("appointments", [])
+                            if appointments:
+                                df = pd.DataFrame(appointments)
+
+                                # Format datetime fields
+                                if 'date' in df.columns and 'time_slot' in df.columns:
+                                    df['Appointment Time'] = df['date'] + ' ' + df['time_slot']
+                                if 'created_at' in df.columns:
+                                    df['Created At'] = pd.to_datetime(df['created_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
+
+                                display_columns = ['appointment_id', 'client_name', 'Appointment Time', 'status',
+                                                   'Created At']
+
+                                # Ensure necessary columns exist
+                                for col in ['client_name', 'status']:
+                                    if col not in df.columns:
+                                        df[col] = 'N/A'
+
+                                # Sort appointments by time
+                                df = df[display_columns].sort_values(by='Appointment Time', ascending=False)
+
+                                # Initialize Session State Variables Before Widget Creation
+                                for _, appointment in df.iterrows():
+                                    update_key = f"show_update_form_{appointment['appointment_id']}"
+                                    if update_key not in st.session_state:
+                                        st.session_state[update_key] = False
+
+                                # Display appointments in a table-like format with action dropdowns
+                                st.markdown("## Manage Appointments")
+
+                                # Create header row using st.columns with numerical widths
+                                header_cols = st.columns([1.5, 2, 2.5, 1.5, 2.5, 2])
+                                with header_cols[0]:
+                                    st.markdown("**Appointment ID**")
+                                with header_cols[1]:
+                                    st.markdown("**Client Name**")
+                                with header_cols[2]:
+                                    st.markdown("**Appointment Time**")
+                                with header_cols[3]:
+                                    st.markdown("**Status**")
+                                with header_cols[4]:
+                                    st.markdown("**Created At**")
+                                with header_cols[5]:
+                                    st.markdown("**Actions**")
+
+                                # Iterate over each appointment to create rows
+                                for _, appointment in df.iterrows():
+                                    appointment_id = appointment['appointment_id']
+                                    client_name = appointment['client_name']
+                                    appointment_time = appointment['Appointment Time']
+                                    status = appointment['status']
+                                    created_at = appointment['Created At']
+
+                                    # Color-coded status with emojis
+                                    status_lower = status.lower()
+                                    if status_lower == 'accepted':
+                                        status_display = f":green[{status.capitalize()}] ✅"
+                                    elif status_lower == 'rejected':
+                                        status_display = f":red[{status.capitalize()}] ❌"
+                                    else:
+                                        status_display = f":yellow[{status.capitalize()}] ⏳"
+
+                                    # Create columns for each row with numerical widths
+                                    row_cols = st.columns([1.5, 2, 2.5, 1.5, 2.5, 2])
+                                    with row_cols[0]:
+                                        st.markdown(appointment_id)
+                                    with row_cols[1]:
+                                        st.markdown(client_name)
+                                    with row_cols[2]:
+                                        st.markdown(appointment_time)
+                                    with row_cols[3]:
+                                        st.markdown(status_display)
+                                    with row_cols[4]:
+                                        st.markdown(created_at)
+                                    with row_cols[5]:
+                                        # Define allowed actions based on current status
+                                        allowed_actions = []
+                                        if status_lower in ['booked', 'pending']:
+                                            allowed_actions = ['Accept', 'Reject', 'Update']
+                                        elif status_lower == 'accepted':
+                                            allowed_actions = ['Reject', 'Update']
+                                        elif status_lower == 'rejected':
+                                            allowed_actions = ['Accept', 'Update']
+
+                                        if allowed_actions:
+                                            # Create a unique key for the action dropdown to avoid conflicts
+                                            action_key = f"action_dropdown_{appointment_id}"
+                                            action = st.selectbox(
+                                                "",
+                                                ["Select Action"] + allowed_actions,
+                                                key=action_key
+                                            )
+
+                                            if action != "Select Action":
+                                                if action == "Accept":
+                                                    # Perform Accept Action
+                                                    accept_data = {
+                                                        "appointment_id": appointment_id,
+                                                        "action": "accept"
+                                                    }
+                                                    with st.spinner("Accepting appointment..."):
+                                                        try:
+                                                            accept_response = st.session_state.session.post(
+                                                                f"{API_BASE_URL}/profile/update_appointment",
+                                                                json=accept_data
+                                                            )
+                                                            if accept_response.status_code == 200:
+                                                                action_result = accept_response.json()
+                                                                if action_result.get("status") == "success":
+                                                                    st.success(
+                                                                        f"Appointment {appointment_id} accepted successfully.")
+                                                                    # Refresh the appointments data
+                                                                    appointments = None  # Reset to trigger data fetching
+                                                                else:
+                                                                    st.error(action_result.get("message",
+                                                                                               f"Failed to {action} appointment."))
+                                                            else:
+                                                                # Attempt to parse error message from backend
+                                                                try:
+                                                                    error_result = accept_response.json()
+                                                                    st.error(
+                                                                        f"Error {accept_response.status_code}: {error_result.get('message', 'Unknown error.')}")
+                                                                except:
+                                                                    st.error(
+                                                                        f"Error {accept_response.status_code}: {accept_response.text}")
+                                                        except Exception as e:
+                                                            st.error(f"An error occurred: {e}")
+
+                                                elif action == "Reject":
+                                                    # Perform Reject Action
+                                                    reject_data = {
+                                                        "appointment_id": appointment_id,
+                                                        "action": "reject"
+                                                    }
+                                                    with st.spinner("Rejecting appointment..."):
+                                                        try:
+                                                            reject_response = st.session_state.session.post(
+                                                                f"{API_BASE_URL}/profile/update_appointment",
+                                                                json=reject_data
+                                                            )
+                                                            if reject_response.status_code == 200:
+                                                                action_result = reject_response.json()
+                                                                if action_result.get("status") == "success":
+                                                                    st.success(
+                                                                        f"Appointment {appointment_id} rejected successfully.")
+                                                                    # Refresh the appointments data
+                                                                    appointments = None  # Reset to trigger data fetching
+                                                                else:
+                                                                    st.error(action_result.get("message",
+                                                                                               f"Failed to {action} appointment."))
+                                                            else:
+                                                                # Attempt to parse error message from backend
+                                                                try:
+                                                                    error_result = reject_response.json()
+                                                                    st.error(
+                                                                        f"Error {reject_response.status_code}: {error_result.get('message', 'Unknown error.')}")
+                                                                except:
+                                                                    st.error(
+                                                                        f"Error {reject_response.status_code}: {reject_response.text}")
+                                                        except Exception as e:
+                                                            st.error(f"An error occurred: {e}")
+
+                                                elif action == "Update":
+                                                    # Toggle the update form for this appointment
+                                                    update_key = f"show_update_form_{appointment_id}"
+                                                    st.session_state[update_key] = True
+
+                                    # Display the update form if toggled on
+                                    update_key = f"show_update_form_{appointment_id}"
+                                    if st.session_state.get(update_key, False):
+                                        with st.form(key=f"update_form_{appointment_id}"):
+                                            # Attempt to parse 'date'; handle missing or invalid 'date'
+                                            try:
+                                                min_date = datetime.strptime(appointment['date'], "%Y-%m-%d").date()
+                                            except KeyError:
+                                                st.warning(
+                                                    f"Appointment {appointment_id} is missing the 'date' field. Using today's date as minimum.")
+                                                min_date = datetime.now().date()
+                                            except ValueError:
+                                                st.warning(
+                                                    f"Appointment {appointment_id} has an invalid 'date' format. Using today's date as minimum.")
+                                                min_date = datetime.now().date()
+
+                                            # New Date Input
+                                            new_date = st.date_input(
+                                                "Choose a New Date",
+                                                min_value=min_date,
+                                                key=f"new_date_{appointment_id}"
+                                            )
+
+                                            # New Time Slot Selection
+                                            try:
+                                                current_time_slot = appointment['time_slot']
+                                                time_slots = [f"{hour}:00-{hour + 1}:00" for hour in range(9, 18)]
+                                                if current_time_slot in time_slots:
+                                                    default_index = time_slots.index(current_time_slot)
+                                                else:
+                                                    default_index = 0
+                                            except KeyError:
+                                                st.warning(
+                                                    f"Appointment {appointment_id} is missing the 'time_slot' field. Setting default time slot.")
+                                                time_slots = [f"{hour}:00-{hour + 1}:00" for hour in range(9, 18)]
+                                                default_index = 0
+
+                                            new_time_slot = st.selectbox(
+                                                "Choose a New Time Slot",
+                                                time_slots,
+                                                index=default_index,
+                                                key=f"new_time_slot_{appointment_id}"
+                                            )
+
+                                            # Submit and Cancel Buttons
+                                            submit_button = st.form_submit_button("Submit Update")
+                                            cancel_button = st.form_submit_button("Cancel")
+
+                                            if submit_button:
+                                                update_data = {
+                                                    "appointment_id": appointment_id,
+                                                    "action": "update",
+                                                    "date": new_date.strftime("%Y-%m-%d"),
+                                                    "time_slot": new_time_slot
+                                                }
+                                                with st.spinner("Updating appointment..."):
+                                                    try:
+                                                        update_response = st.session_state.session.post(
+                                                            f"{API_BASE_URL}/profile/update_appointment",
+                                                            json=update_data
+                                                        )
+                                                        if update_response.status_code == 200:
+                                                            update_result = update_response.json()
+                                                            if update_result.get("status") == "success":
+                                                                st.success(
+                                                                    f"Appointment {appointment_id} updated successfully.")
+                                                                st.session_state[update_key] = False
+                                                                # Refresh the appointments data
+                                                                appointments = None  # Reset to trigger data fetching
+                                                            else:
+                                                                st.error(update_result.get("message",
+                                                                                           "Failed to update appointment."))
+                                                        else:
+                                                            # Attempt to parse error message from backend
+                                                            try:
+                                                                error_result = update_response.json()
+                                                                st.error(
+                                                                    f"Error {update_response.status_code}: {error_result.get('message', 'Unknown error.')}")
+                                                            except:
+                                                                st.error(
+                                                                    f"Error {update_response.status_code}: {update_response.text}")
+                                                    except Exception as e:
+                                                        st.error(f"An error occurred: {e}")
+
+                                            if cancel_button:
+                                                st.session_state[update_key] = False
+
+                    except Exception as e:
+                        st.error(f"An error occurred: {e}")
+        if "Profile Reviews" in selected_widgets:
+            st.header("Client Reviews")
+            reviews_data = fetch_data('get_reviews', user_id)  # <-- Your existing helper
+            if reviews_data and isinstance(reviews_data, list):
+                # Convert reviews_data into a DataFrame
+                df_reviews = process_reviews(reviews_data)  # your function that normalizes date, etc.
+
+                # 1) Display raw reviews in a table
+                st.dataframe(df_reviews)
+
+                # 2) Example: Plot a histogram of rating distribution
+                if 'rating' in df_reviews.columns:
+                    st.subheader("Rating Distribution")
+                    fig_dist = px.histogram(
+                        df_reviews,
+                        x='rating',
+                        nbins=5,  # Adjust as needed
+                        title='Rating Frequency',
+                        color='rating'
+                    )
+                    st.plotly_chart(fig_dist, use_container_width=True)
+
+                # 3) Example: Plot rating vs time to see how ratings change over time (if you have a 'date' column)
+                if 'date' in df_reviews.columns and 'rating' in df_reviews.columns:
+                    # Ensure date column is actually datetime
+                    df_reviews['date'] = pd.to_datetime(df_reviews['date'])
+                    df_reviews.sort_values('date', inplace=True)
+
+                    st.subheader("Rating Over Time")
+                    fig_time = px.line(
+                        df_reviews,
+                        x='date',
+                        y='rating',
+                        title='Rating Trend Over Time',
+                        markers=True
+                    )
+                    st.plotly_chart(fig_time, use_container_width=True)
+
+                # 4) Optional: Show average rating or other stats
+                if 'rating' in df_reviews.columns:
+                    avg_rating = df_reviews['rating'].mean()
+                    st.metric(label="Average Rating", value=f"{avg_rating:.2f}")
+            else:
+                st.write("No reviews available.")
 
     # ---------------------------- Create Court Document Page ---------------------------- #
 
@@ -2377,6 +3288,59 @@ else:
         else:
             st.info("No placeholders found in the selected template. You can directly download the document.")
 
+    # ---------------------------- FAQs Viewer Page ---------------------------- #
+    elif selection == "FAQs":
+        st.title("Frequently Asked Questions")
+
+        try:
+            response = requests.get(f"{API_BASE_URL}/get_faqs")
+            if response.status_code == 200:
+                # Parse the JSON string
+                faqs = response.json()
+                if isinstance(faqs, list):
+                    for faq in faqs:
+                        with st.expander(f"{faq['question']}"):
+                            st.write(f"{faq['answer']}")
+                else:
+                    st.error("FAQ data is not a list. Please check the API response.")
+            else:
+                st.error(f"Failed to load FAQs, status code: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            st.error(f"An error occurred while fetching FAQs: {str(e)}")
+
+
+
+
+
+
+    elif selection == "Submit Review":
+        st.title("Submit a Review")
+
+        if not st.session_state.logged_in or st.session_state.role != 'client':
+            st.error("You must be logged in as a client to submit reviews.")
+        else:
+            # Assuming the client knows their lawyer's ID or you fetch it based on past appointments
+            lawyer_id = st.text_input("Lawyer ID", "Enter your lawyer's ID here")
+            review_text = st.text_area("Review")
+            rating = st.slider("Rating", 1, 5, 3)
+            submit_button = st.button("Submit Review")
+
+            if submit_button:
+                if not review_text or not lawyer_id:
+                    st.error("Please fill in all fields.")
+                else:
+                    review_data = {
+                        "lawyer_id": lawyer_id,
+                        "client_id": st.session_state.user_id,  # Assume user ID is stored in session upon login
+                        "review": review_text,
+                        "rating": rating
+                    }
+                    # POST request to Flask API
+                    response = requests.post(f'{API_BASE_URL}/add_review', json=review_data)
+                    if response.status_code == 201:
+                        st.success("Your review has been submitted successfully!")
+                    else:
+                        st.error("Failed to submit review. Please try again.")
     # ---------------------------- Document Viewer Page ---------------------------- #
     elif st.session_state.current_view == "Document Viewer":
         if st.session_state.selected_document:

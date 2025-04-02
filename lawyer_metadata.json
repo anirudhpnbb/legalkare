@@ -1,0 +1,44 @@
+[
+  {
+    "lawyer_id": "UID0008",
+    "name": "Anudeep NVSS Palaparthi",
+    "specialization": "Corporate",
+    "court": "Hyderabad",
+    "years_of_experience": 3
+  },
+  {
+    "lawyer_id": "UID0010",
+    "name": "Mukram M Shariff",
+    "specialization": "Civil",
+    "court": "Nampalli",
+    "years_of_experience": 7
+  },
+  {
+    "lawyer_id": "UID0012",
+    "name": "Manish Kumar Pokala",
+    "specialization": "Civil",
+    "court": "Nampalli",
+    "years_of_experience": 7
+  },
+  {
+    "lawyer_id": "UID0013",
+    "name": "Anirudh NBB Palaparthi",
+    "specialization": "Criminal",
+    "court": "Nampalli",
+    "years_of_experience": 7
+  },
+  {
+    "lawyer_id": "UID0014",
+    "name": "Shiva Ganesh S",
+    "specialization": "Civil",
+    "court": "Vijayawada",
+    "years_of_experience": 5
+  },
+  {
+    "lawyer_id": "UID0015",
+    "name": "Sreeram Naga Nittala",
+    "specialization": "Corporate",
+    "court": "Nampalli",
+    "years_of_experience": 8
+  }
+]
