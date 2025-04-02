@@ -6,3 +6,4 @@ flask_session/
 /flask_session
 index.faiss
 token_ikhanoon
+metadata.json
