@@ -16,6 +16,34 @@ from matplotlib import pyplot as plt
 
 load_dotenv()
 
+# Validate critical environment variables
+def check_env_config():
+    """Check if critical environment variables are set and provide helpful feedback"""
+    missing_vars = []
+    
+    if not os.getenv("OPENAI_MODEL_NAME"):
+        missing_vars.append("OPENAI_MODEL_NAME")
+    
+    if not os.getenv("S3_BUCKET_NAME"):
+        missing_vars.append("S3_BUCKET_NAME")
+    
+    if missing_vars:
+        st.error("⚠️ Missing Environment Variables")
+        st.markdown(f"""
+        The following environment variables are not set: **{', '.join(missing_vars)}**
+        
+        **To fix this:**
+        1. Copy `.env.template` to `.env`
+        2. Fill in your actual values in the `.env` file
+        3. Restart the application
+        
+        See the `.env.template` file for all required variables.
+        """)
+        st.stop()
+
+# Check environment configuration
+check_env_config()
+
 model = os.getenv("OPENAI_MODEL_NAME")
 
 # ---------------------------- Configuration ---------------------------- #
@@ -93,82 +121,185 @@ tooltip_css = """
 """
 st.markdown(tooltip_css, unsafe_allow_html=True)
 
-# ---------------------------- Custom CSS for Tooltips and General Styling ---------------------------- #
+# ---------------------------- Enhanced Custom CSS for Modern UI ---------------------------- #
 custom_css = """
 <style>
+    /* Import modern fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
     /* General Styling */
-    body {
-        background-color: #f0f2f6;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    .main > div {
+        padding-top: 2rem;
     }
-
-    /* Hero Section */
-    .hero {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 50px 0;
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
-
-    .hero-text {
-        max-width: 600px;
-    }
-
-    .hero-text h1 {
+    
+    /* Custom title styling */
+    .main-title {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         font-size: 3rem;
-        color: #333333;
-    }
-
-    .hero-text p {
-        font-size: 1.2rem;
-        color: #555555;
-        margin-top: 20px;
-        line-height: 1.6;
-    }
-
-    /* Features Section */
-    .features {
-        padding: 50px 0;
-    }
-
-    .feature {
+        font-weight: 700;
         text-align: center;
-        padding: 20px;
+        margin-bottom: 2rem;
     }
-
-    .feature img {
-        width: 100px;
-        height: 100px;
+    
+    /* Card styling */
+    .custom-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        margin: 1rem 0;
+        transition: all 0.3s ease;
     }
-
+    
+    .custom-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+    
+    /* Feature grid */
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin: 2rem 0;
+    }
+    
+    .feature {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        text-align: center;
+        transition: transform 0.3s ease;
+    }
+    
+    .feature:hover {
+        transform: scale(1.05);
+    }
+    
     .feature h3 {
-        margin-top: 20px;
         font-size: 1.5rem;
-        color: #333333;
+        font-weight: 600;
+        margin-bottom: 1rem;
     }
-
+    
     .feature p {
-        color: #555555;
-        margin-top: 10px;
-        line-height: 1.4;
-    }
-
-    /* Button Styling */
-    .btn {
-        display: inline-block;
-        padding: 12px 24px;
         font-size: 1rem;
-        color: #ffffff;
-        background-color: #1e88e5;
-        border: none;
-        border-radius: 25px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-        text-decoration: none;
+        line-height: 1.6;
+        opacity: 0.9;
     }
-
-    .btn:hover {
-        background-color: #1565c0;
+    
+    /* Enhanced button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 0.75rem 2rem;
+        font-weight: 500;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.25);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 15px -3px rgba(102, 126, 234, 0.35);
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .css-1d391kg .css-1v0mbdj {
+        color: white;
+    }
+    
+    /* Form styling */
+    .stTextInput > div > div > input {
+        border-radius: 8px;
+        border: 2px solid #e2e8f0;
+        transition: border-color 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    /* Success and error message styling */
+    .stSuccess {
+        background: linear-gradient(135deg, #48bb78 0%, #38b2ac 100%);
+        border-radius: 12px;
+        border: none;
+    }
+    
+    .stError {
+        background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        border-radius: 12px;
+        border: none;
+    }
+    
+    /* Info box styling */
+    .info-box {
+        background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 1rem 0;
+        text-align: center;
+    }
+    
+    .info-box h4 {
+        margin: 0 0 0.5rem 0;
+        font-weight: 600;
+    }
+    
+    /* Metrics styling */
+    .metric-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #667eea;
+        margin: 0.5rem 0;
+    }
+    
+    /* Loading animation */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-radius: 50%;
+        border-top-color: #667eea;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .custom-card {
+            background: #1a1a1a;
+            border-color: #333;
+        }
+        
+        .metric-card {
+            background: #1a1a1a;
+            color: white;
+        }
     }
 </style>
 """
@@ -177,12 +308,16 @@ st.markdown(custom_css, unsafe_allow_html=True)
 
 def load_lottieurl(url: str):
     """
-    Load a Lottie animation from a URL.
+    Load a Lottie animation from a URL with error handling.
     """
-    r = requests.get(url)
-    if r.status_code != 200:
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except (requests.RequestException, requests.exceptions.ConnectionError):
+        # Return None if animation cannot be loaded (network issues, etc.)
         return None
-    return r.json()
 
 def fetch_data(endpoint, user_id):
     """ Helper function to fetch data from the Flask API """
@@ -281,92 +416,138 @@ def home_page():
     st.markdown("---")
     st.image("logo.png", use_container_width=True, width=400)
 
+    # Enhanced Hero Section with modern design
+    st.markdown('<div class="custom-card">', unsafe_allow_html=True)
+    
     # Load Lottie animation for the hero section
     lottie_animation = load_lottieurl(
-        "https://assets9.lottiefiles.com/packages/lf20_jcikwtux.json")  # Replace with your chosen animation URL
+        "https://assets9.lottiefiles.com/packages/lf20_jcikwtux.json")
 
-    # Hero Section
-    st.markdown('<div class="hero">', unsafe_allow_html=True)
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        st.markdown('<h1 class="main-title">Welcome to LegalKare</h1>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="info-box">
+            <h4>🚀 Your AI-Powered Legal Companion</h4>
+            <p>Bridging the gap between legal professionals and clients with cutting-edge technology, 
+            secure document management, and intelligent legal research capabilities.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Key benefits with icons
+        st.markdown("""
+        <div style="display: flex; flex-direction: column; gap: 1rem; margin: 2rem 0;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.5rem; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">📄</div>
+                <div>
+                    <strong>Smart Document Management</strong><br>
+                    <small style="color: #666;">Upload, organize, and search through your legal documents with AI-powered insights</small>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.5rem; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">🤖</div>
+                <div>
+                    <strong>AI Legal Assistant</strong><br>
+                    <small style="color: #666;">Get instant answers to legal questions with our advanced AI chatbot</small>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 0.5rem; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">👥</div>
+                <div>
+                    <strong>Seamless Collaboration</strong><br>
+                    <small style="color: #666;">Connect lawyers and clients with video consultations and appointment booking</small>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    # Hero Text
-    st.markdown('<div class="hero-text">', unsafe_allow_html=True)
-    st.markdown("### Welcome to **LegalKare**", unsafe_allow_html=True)
-    st.markdown("""
-        **LegalKare** is a comprehensive platform designed to assist lawyers and clients in managing and accessing legal services efficiently.
-
-        **Our Mission:** To bridge the gap between legal professionals and clients by providing a seamless, secure, and intuitive platform for all your legal needs.
-    """, unsafe_allow_html=True)
-
-    # Action Buttons
-    st.markdown("""
-        <a href="#features" class="btn">Learn More</a>
-        <a href="#register" class="btn">Get Started</a>
-    """, unsafe_allow_html=True)
-
+    with col2:
+        if lottie_animation:
+            st_lottie(lottie_animation, height=300, key="hero_animation")
+        else:
+            # Fallback when animation cannot be loaded
+            st.markdown("""
+            <div style="height: 300px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; color: white; text-align: center;">
+                <div>
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">⚖️</div>
+                    <h3>LegalKare</h3>
+                    <p>Your Legal Companion</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Hero Animation
-    st.markdown('<div>', unsafe_allow_html=True)
-    st_lottie(lottie_animation, height=300, key="hero_animation")
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Features Section
-    st.markdown('<div class="features" id="features">', unsafe_allow_html=True)
-    st.markdown("### Features", unsafe_allow_html=True)
-    st.markdown('<hr>', unsafe_allow_html=True)
-
-    # Create columns for features
-    feature_cols = st.columns(3)
+    # Enhanced Features Section with modern card design
+    st.markdown('<div style="margin: 3rem 0;">', unsafe_allow_html=True)
+    st.markdown('<h2 style="text-align: center; margin-bottom: 2rem; color: #333;">Powerful Features</h2>', unsafe_allow_html=True)
+    
+    # Create feature grid
+    st.markdown('<div class="feature-grid">', unsafe_allow_html=True)
 
     features = [
         {
-            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/user-male-circle.png",
-            "title": "User Registration & Authentication",
-            "description": "Secure and seamless registration process ensuring your data privacy."
+            "emoji": "🔐",
+            "title": "Secure Authentication",
+            "description": "Enterprise-grade security with AWS Cognito integration for safe user management"
         },
         {
-            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/user-male-circle.png",
-            "title": "Profile Management",
-            "description": "Manage your personal and professional information with ease."
+            "emoji": "📄",
+            "title": "Smart Document Management",
+            "description": "AI-powered document analysis with secure cloud storage and advanced search"
         },
         {
-            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/upload.png",
-            "title": "Upload & Manage Documents",
-            "description": "Efficiently upload, organize, and access your legal documents."
+            "emoji": "🤖",
+            "title": "Legal AI Assistant",
+            "description": "Get instant legal insights powered by OpenAI's latest language models"
         },
         {
-            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/search.png",
-            "title": "Powerful Search Functionality",
-            "description": "Find the information you need quickly with our advanced search tools."
+            "emoji": "📅",
+            "title": "Appointment Booking",
+            "description": "Seamless scheduling system connecting lawyers and clients efficiently"
         },
         {
-            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/chat.png",
-            "title": "Chat with Legal LLM",
-            "description": "Get instant assistance and legal advice through our intelligent chat system."
+            "emoji": "💬",
+            "title": "Video Consultations",
+            "description": "High-quality video calls powered by Twilio for remote legal consultations"
         },
         {
-            "icon": "https://img.icons8.com/ios-filled/100/1e88e5/calendar.png",
-            "title": "Book Appointments",
-            "description": "Schedule meetings with lawyers at your convenience."
+            "emoji": "🔍",
+            "title": "Advanced Search",
+            "description": "Find relevant legal documents and precedents using semantic search technology"
         }
     ]
 
+    # Display features in a grid
+    cols = st.columns(2)
     for idx, feature in enumerate(features):
-        with feature_cols[idx % 3]:
-            st.markdown('<div class="feature">', unsafe_allow_html=True)
-            st.image(feature["icon"], width=100)
-            st.markdown(f"### {feature['title']}", unsafe_allow_html=True)
-            st.markdown(f"{feature['description']}", unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+        with cols[idx % 2]:
+            st.markdown(f"""
+            <div class="feature">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">{feature['emoji']}</div>
+                <h3>{feature['title']}</h3>
+                <p>{feature['description']}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Optional: Add another animation or decorative elements below
     st.markdown('<div>', unsafe_allow_html=True)
     lottie_decor = load_lottieurl(
         "https://assets10.lottiefiles.com/packages/lf20_jcikwtux.json")  # Replace with another animation if desired
-    st_lottie(lottie_decor, height=200, key="decor_animation")
+    if lottie_decor:
+        st_lottie(lottie_decor, height=200, key="decor_animation")
+    else:
+        # Fallback decorative element
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 16px; margin: 2rem 0;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">🏛️ ⚖️ 📚</div>
+            <h4>Empowering Legal Excellence</h4>
+        </div>
+        """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Register Section (Anchor)

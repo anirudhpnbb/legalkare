@@ -1,10 +1,19 @@
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VideoGrant
 from flask import Flask, request, jsonify
+import os
+from dotenv import load_dotenv
 
-TWILIO_ACCOUNT_SID = "ACeef16be78c5f2620cb378c55c57d3cce"
-TWILIO_API_KEY = "SKcaac9310aa926d9ff27f067f90349508"
-TWILIO_API_SECRET = "S6ntzZrWr8n5wUtDg0KJGj9z0vahWtYT"
+# Load environment variables
+load_dotenv()
+
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_API_KEY = os.getenv("TWILIO_API_KEY_SID")
+TWILIO_API_SECRET = os.getenv("TWILIO_API_KEY_SECRET")
+
+# Validate required Twilio environment variables
+if not all([TWILIO_ACCOUNT_SID, TWILIO_API_KEY, TWILIO_API_SECRET]):
+    raise ValueError("Missing Twilio environment variables. Please set TWILIO_ACCOUNT_SID, TWILIO_API_KEY_SID, and TWILIO_API_KEY_SECRET in your .env file.")
 
 app = Flask(__name__)
 
