@@ -2,52 +2,408 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Ensure proper mobile scaling -->
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LegalKare - Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LegalKare - Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="js/main.js" defer></script>
-  <!-- Include Lottie Player from CDN -->
+  <!-- Lottie Animation Player -->
   <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    /* Global Styles */
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #202A44; /* Dark background */
-      color: #FFFFFF;
-    }
-    .container {
+    /* Dashboard-specific styles */
+    .dashboard-container {
       display: flex;
       min-height: 100vh;
+      padding-top: 80px;
     }
-    /* Sidebar Navigation (Dashboard structure) */
+    
     .sidebar {
-      width: 250px;
-      background: #001F3F; /* Navy blue background */
-      color: #FFFFFF;
-      padding: 20px;
-      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
-      border-right: 2px solid #D4AF37; /* Gold accent border */
+      width: 280px;
+      background: rgba(26, 35, 50, 0.95);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid var(--glass-border);
+      padding: 2rem;
+      position: fixed;
+      height: calc(100vh - 80px);
+      overflow-y: auto;
+      z-index: 100;
     }
+    
     .sidebar h2 {
-      font-size: 1.8rem;
-      margin-bottom: 30px;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem;
+      margin-bottom: 2rem;
       text-align: center;
+      color: var(--accent-gold);
     }
-    .sidebar ul {
+    
+    .sidebar-menu {
       list-style: none;
       padding: 0;
     }
-    .sidebar ul li {
-      margin-bottom: 15px;
+    
+    .sidebar-menu li {
+      margin-bottom: 0.5rem;
     }
-    .sidebar ul li a {
-      color: #FFFFFF;
+    
+    .sidebar-menu a {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      color: var(--text-white);
       text-decoration: none;
-      font-size: 1.1rem;
-      display: block;
-      padding: 10px;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+    
+    .sidebar-menu a:hover,
+    .sidebar-menu a.active {
+      background: rgba(212, 175, 55, 0.1);
+      color: var(--accent-gold);
+      transform: translateX(5px);
+    }
+    
+    .sidebar-menu i {
+      margin-right: 12px;
+      width: 20px;
+      text-align: center;
+    }
+    
+    .main-content {
+      flex: 1;
+      margin-left: 280px;
+      padding: 2rem;
+      background: linear-gradient(135deg, rgba(26, 35, 50, 0.1), rgba(44, 62, 80, 0.1));
+    }
+    
+    .welcome-section {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-top: 2rem;
+    }
+    
+    .dashboard-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 2rem;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .dashboard-card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow-glow);
+    }
+    
+    .dashboard-card h3 {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+      color: var(--accent-gold);
+    }
+    
+    .dashboard-card h3 i {
+      margin-right: 12px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin: 2rem 0;
+    }
+    
+    .stat-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 15px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+      transform: scale(1.05);
+      box-shadow: var(--shadow-glow);
+    }
+    
+    .stat-number {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent-gold);
+      margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+      color: var(--text-gray);
+      font-size: 0.9rem;
+    }
+    
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+      
+      .sidebar.active {
+        transform: translateX(0);
+      }
+      
+      .main-content {
+        margin-left: 0;
+        padding: 1rem;
+      }
+      
+      .mobile-menu-btn {
+        display: block;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 1001;
+        background: var(--accent-gold);
+        border: none;
+        border-radius: 8px;
+        padding: 10px;
+        color: var(--primary-blue);
+        cursor: pointer;
+      }
+    }
+    
+    .mobile-menu-btn {
+      display: none;
+    }
+  </style>
+</head>
+<body onload="loadDashboard()">
+  <!-- Floating Particles Background -->
+  <div class="particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
+
+  <!-- Enhanced Navigation Header -->
+  <header>
+    <nav class="navbar" id="navbar">
+      <div class="logo-container">
+        <a href="home.html">
+          <img src="logo.png" alt="LegalKare Logo" class="logo">
+        </a>
+      </div>
+      
+      <ul>
+        <li><a href="home.html" class="active">Dashboard</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Mobile Menu Button -->
+  <button class="mobile-menu-btn" onclick="toggleSidebar()">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <!-- Dashboard Container -->
+  <div class="dashboard-container">
+    <!-- Enhanced Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <h2><i class="fas fa-balance-scale"></i> Legal Assistant</h2>
+      
+      <ul class="sidebar-menu">
+        <li><a href="home.html" class="active"><i class="fas fa-home"></i> Dashboard</a></li>
+        <li><a href="documents.html"><i class="fas fa-folder"></i> Documents</a></li>
+        <li><a href="chat.html"><i class="fas fa-robot"></i> AI Assistant</a></li>
+        <li><a href="appointments.html"><i class="fas fa-calendar"></i> Appointments</a></li>
+        <li><a href="teams.html"><i class="fas fa-users"></i> Teams</a></li>
+        <li><a href="court_documents.html"><i class="fas fa-file-contract"></i> Court Documents</a></li>
+        <li><a href="judgement_search.html"><i class="fas fa-search"></i> Judgement Search</a></li>
+        <li><a href="summarise.html"><i class="fas fa-file-alt"></i> Document Summarizer</a></li>
+        <li><a href="initiate_call.html"><i class="fas fa-video"></i> Video Consultation</a></li>
+        <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+        <li><a href="notifications.html"><i class="fas fa-bell"></i> Notifications</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Welcome Section -->
+      <section class="welcome-section reveal">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div>
+            <h1>Welcome back, <span id="welcomeUser" class="text-shimmer">User</span>!</h1>
+            <p style="color: var(--text-gray); margin-top: 0.5rem;">Your personal legal assistant is ready to help you manage your legal workflow efficiently.</p>
+          </div>
+          <div>
+            <lottie-player
+              src="https://assets8.lottiefiles.com/packages/lf20_5ngs2ksb.json"
+              background="transparent"
+              speed="1"
+              style="width: 200px; height: 200px;"
+              loop
+              autoplay>
+            </lottie-player>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats Grid -->
+      <section class="stats-grid">
+        <div class="stat-card reveal">
+          <div class="stat-number">24</div>
+          <div class="stat-label">Documents</div>
+        </div>
+        <div class="stat-card reveal">
+          <div class="stat-number">3</div>
+          <div class="stat-label">Upcoming Appointments</div>
+        </div>
+        <div class="stat-card reveal">
+          <div class="stat-number">12</div>
+          <div class="stat-label">AI Consultations</div>
+        </div>
+        <div class="stat-card reveal">
+          <div class="stat-number">5</div>
+          <div class="stat-label">Active Teams</div>
+        </div>
+      </section>
+
+      <!-- Dashboard Grid -->
+      <section class="dashboard-grid">
+        <div class="dashboard-card reveal">
+          <h3><i class="fas fa-file-upload"></i> Quick Actions</h3>
+          <p style="color: var(--text-gray); margin-bottom: 1.5rem;">Get started with essential tasks</p>
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <a href="upload_document.html" class="btn" style="text-decoration: none;">
+              <i class="fas fa-upload"></i> Upload Document
+            </a>
+            <a href="chat.html" class="btn secondary" style="text-decoration: none;">
+              <i class="fas fa-robot"></i> Ask AI Assistant
+            </a>
+          </div>
+        </div>
+
+        <div class="dashboard-card reveal">
+          <h3><i class="fas fa-clock"></i> Recent Activity</h3>
+          <div style="color: var(--text-gray);">
+            <div style="display: flex; align-items: center; margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+              <i class="fas fa-file" style="margin-right: 12px; color: var(--accent-gold);"></i>
+              <div>
+                <div style="font-weight: 500;">Document uploaded</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">2 hours ago</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+              <i class="fas fa-calendar" style="margin-right: 12px; color: var(--accent-gold);"></i>
+              <div>
+                <div style="font-weight: 500;">Appointment scheduled</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">1 day ago</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+              <i class="fas fa-robot" style="margin-right: 12px; color: var(--accent-gold);"></i>
+              <div>
+                <div style="font-weight: 500;">AI consultation</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">3 days ago</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-card reveal">
+          <h3><i class="fas fa-calendar-check"></i> Upcoming Appointments</h3>
+          <div style="color: var(--text-gray);">
+            <div style="text-align: center; padding: 2rem;">
+              <i class="fas fa-calendar-alt fa-3x" style="color: var(--accent-gold); margin-bottom: 1rem; opacity: 0.5;"></i>
+              <p>No upcoming appointments</p>
+              <a href="book_appointment.html" class="btn" style="text-decoration: none; margin-top: 1rem;">
+                Schedule Consultation
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-card reveal">
+          <h3><i class="fas fa-bell"></i> Notifications</h3>
+          <div style="color: var(--text-gray);">
+            <div style="display: flex; align-items: center; margin-bottom: 1rem; padding: 1rem; background: rgba(212,175,55,0.1); border-radius: 8px; border-left: 3px solid var(--accent-gold);">
+              <i class="fas fa-info-circle" style="margin-right: 12px; color: var(--accent-gold);"></i>
+              <div>
+                <div style="font-weight: 500;">Welcome to LegalKare!</div>
+                <div style="font-size: 0.8rem; opacity: 0.7;">Complete your profile setup</div>
+              </div>
+            </div>
+            <a href="notifications.html" style="color: var(--accent-gold); text-decoration: none; font-size: 0.9rem;">
+              View all notifications →
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // Dashboard functionality
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('active');
+    }
+
+    // Initialize dashboard
+    function loadDashboard() {
+      // Set welcome message
+      const welcomeUserElem = document.getElementById("welcomeUser");
+      const username = localStorage.getItem("username") || "User";
+      if (welcomeUserElem) {
+        welcomeUserElem.textContent = username;
+      }
+
+      // Add reveal animations
+      setTimeout(() => {
+        document.querySelectorAll('.reveal').forEach((el, index) => {
+          setTimeout(() => {
+            el.classList.add('active');
+          }, index * 100);
+        });
+      }, 100);
+    }
+
+    // Close sidebar on mobile when clicking outside
+    document.addEventListener('click', (e) => {
+      if (window.innerWidth <= 768) {
+        const sidebar = document.getElementById('sidebar');
+        const mobileBtn = document.querySelector('.mobile-menu-btn');
+        
+        if (!sidebar.contains(e.target) && !mobileBtn.contains(e.target)) {
+          sidebar.classList.remove('active');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
       border-radius: 5px;
       transition: background 0.3s ease;
     }
