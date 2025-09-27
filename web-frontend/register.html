@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LegalKare - Register</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Registration Form Overrides */
+    .form-container {
+      background: #001F3F; /* Navy blue background */
+      padding: 2rem;
+      border-radius: 15px;
+      margin: 100px auto;
+      max-width: 500px;
+      box-shadow: 0 8px 16px rgba(212, 175, 55, 0.4);
+      text-align: center;
+      color: #FFFFFF;
+    }
+    .form-container label {
+      display: block;
+      text-align: left;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    .form-container input,
+    .form-container select,
+    .form-container textarea {
+      padding: 8px;
+      margin-bottom: 1rem;
+      border: 1px solid #D4AF37; /* Gold border */
+      border-radius: 5px;
+      background: #001F3F; /* Blue background for fields */
+      color: #FFFFFF;  /* White text for input */
+    }
+    .form-container button {
+      padding: 10px;
+      background: #001F3F; /* Navy blue background */
+      border: 1px solid #D4AF37; /* Gold border for button */
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .form-container button:hover {
+      background: #001F3F;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container navbar">
+      <div class="logo-container">
+  <a href="index.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="services.html">Services</a></li>
+      <li><a href="blog.html">Blog</a></li>
+      <li><a href="login.html">Login</a></li>
+      <li><a href="register.html" style="text-decoration:underline;">Register</a></li>
+    </ul>
+  </div>
+</header>
+
+<section class="container form-container">
+  <h2>Register for LegalKare</h2>
+  <form id="registerForm">
+    <label for="username">Username *</label>
+    <input type="text" id="username" />
+
+    <label for="password">Password *</label>
+    <input type="password" id="password" />
+
+    <label for="email">Email *</label>
+    <input type="email" id="email" />
+
+    <label for="given_name">Given Name *</label>
+    <input type="text" id="given_name" />
+
+    <label for="family_name">Family Name *</label>
+    <input type="text" id="family_name" />
+
+    <label for="birthdate">Birthdate</label>
+    <input type="date" id="birthdate" />
+
+    <label for="gender">Gender</label>
+    <select id="gender">
+      <option value="Male" selected>Male</option>
+      <option value="Female">Female</option>
+      <option value="Other">Other</option>
+    </select>
+
+    <label for="addresses">Addresses</label>
+    <textarea id="addresses" rows="2"></textarea>
+
+    <label for="role">Role</label>
+    <select id="role">
+      <option value="client" selected>Client</option>
+      <option value="lawyer">Lawyer</option>
+    </select>
+
+    <!-- Lawyer-specific fields -->
+    <div id="lawyerFields" style="display:none;">
+      <label for="specialization">Specialization</label>
+      <input type="text" id="specialization" />
+
+      <label for="court">Court</label>
+      <input type="text" id="court" />
+
+      <label for="years_of_experience">Years of Experience</label>
+      <input type="number" id="years_of_experience" value="0" min="0" />
+    </div>
+
+    <button type="submit">Register</button>
+  </form>
+</section>
+
+<footer>
+  © 2025 LegalKare. All rights reserved.
+</footer>
+
+<script>
+  const roleSelect = document.getElementById("role");
+  const lawyerFields = document.getElementById("lawyerFields");
+
+  roleSelect.addEventListener("change", () => {
+    if (roleSelect.value === "lawyer") {
+      lawyerFields.style.display = "block";
+    } else {
+      lawyerFields.style.display = "none";
+    }
+  });
+</script>
+</body>
+</html>

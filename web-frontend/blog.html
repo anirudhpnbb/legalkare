@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LegalKare - Blog</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* Center the hero section content */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 50px 0;
+      text-align: center;
+      background: #202A44;
+    }
+    .hero h1 {
+      color: #FFFFFF;
+      font-size: 3rem;
+    }
+    .hero p {
+      color: #FFFFFF;
+      font-size: 1.2rem;
+    }
+    /* Posts Overview Section */
+    .posts-overview {
+      text-align: center;
+      padding: 40px 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .posts-overview h2 {
+      color: #FFFFFF;
+      margin-bottom: 20px;
+    }
+    /* Grid layout for blog posts (similar to the feature grid on Services) */
+    .post-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 40px;
+    }
+    /* Each blog post card */
+    .post {
+      background: #202A44; /* Navy blue background */
+      border: 1px solid #D4AF37; /* Gold border */
+      border-radius: 10px;
+      padding: 20px;
+      flex: 1 1 250px;
+      max-width: 300px;
+      text-align: center;
+      text-decoration: none;
+      color: #FFFFFF;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .post:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(212, 175, 55, 0.4);
+    }
+    .post h3 {
+      margin-top: 15px;
+      font-size: 1.3rem;
+    }
+    .post p {
+      font-size: 1rem;
+      margin-top: 10px;
+    }
+    /* CTA Section (consistent with Services page) */
+    .cta {
+      text-align: center;
+      padding: 60px 20px;
+      background: #202A44;
+    }
+    .cta h2 {
+      color: #FFFFFF;
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+    .cta p {
+      color: #FFFFFF;
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+    }
+    .cta button {
+      display: inline-block;
+      padding: 12px 24px;
+      font-size: 1rem;
+      color: #FFFFFF;
+      background-color: #202A44;
+      border: 2px solid #D4AF37;
+      border-radius: 25px;
+      cursor: pointer;
+      transition: color 0.3s ease;
+    }
+    .cta button:hover {
+      color: #D4AF37;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container navbar">
+      <div class="logo-container">
+  <a href="blog.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>
+    <ul>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="services.html">Services</a></li>
+      <li><a href="blog.html" style="text-decoration:underline;">Blog</a></li>
+      <li><a href="login.html">Login</a></li>
+      <li><a href="register.html">Register</a></li>
+    </ul>
+  </div>
+</header>
+
+<section class="hero">
+  <h1>LegalKare Blog</h1>
+  <p>Insights and updates on the latest in legal tech and best practices.</p>
+</section>
+
+<section class="posts-overview">
+  <h2>Latest Posts</h2>
+  <div class="post-grid">
+    <a class="post" href="blog-post.html">
+      <h3>Understanding Legal Documents 101</h3>
+      <p>A beginner's guide to navigating legal paperwork.</p>
+    </a>
+    <a class="post" href="blog-post.html">
+      <h3>The Future of AI in Law</h3>
+      <p>How artificial intelligence is reshaping legal practice.</p>
+    </a>
+    <a class="post" href="blog-post.html">
+      <h3>Setting Up a Business Legally</h3>
+      <p>Key steps to ensure your business complies with legal requirements.</p>
+    </a>
+  </div>
+</section>
+
+<section class="cta">
+  <h2>Stay in the Loop</h2>
+  <p>Subscribe to our newsletter for the latest updates.</p>
+  <button>Subscribe</button>
+</section>
+
+<footer>
+  © 2025 LegalKare. All rights reserved.
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LegalKare - FAQs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Container: Sidebar and main content side-by-side */
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar styling */
+    .sidebar {
+      width: 250px;
+      background: #001F3F;
+      color: #fff;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      border-right: 2px solid #D4AF37;
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212,175,55,0.2);
+    }
+    /* Main Content styling */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6;
+      color: #333;
+      overflow-y: auto;
+    }
+    .content {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    /* FAQ Container */
+    .faq-container {
+      background: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      color: #333;
+    }
+    .faq-container h1 {
+      font-size: 2.5rem;
+      color: #001F3F;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    /* Dropdown FAQ styling using details/summary */
+    details {
+      border-bottom: 1px solid #D4AF37;
+      padding: 10px 0;
+    }
+    details:last-of-type {
+      border-bottom: none;
+    }
+    summary {
+      font-weight: bold;
+      font-size: 1.2rem;
+      cursor: pointer;
+      outline: none;
+    }
+    details[open] summary {
+      color: #001F3F;
+    }
+    .faq-answer {
+      margin-top: 10px;
+      font-size: 1rem;
+      line-height: 1.4;
+      padding-left: 20px;
+    }
+    /* Footer styling */
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+  </style>
+  <!-- Access control: Only allow clients to access this page -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+      if (role !== "client") {
+        alert("Access denied. This page is only accessible to clients.");
+        window.location.href = "login.html";
+      }
+    });
+  </script>
+  <!-- Optional: Remove lawyer-only links if present -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+      if (role === "client") {
+        document.querySelectorAll("a.lawyer-only").forEach(link => link.parentElement.remove());
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo-container">
+        <a href="index.html">
+          <img src="logo.png" alt="LegalKare Logo" class="logo">
+        </a>
+      </div>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="book_appointment.html">Book Appointment</a></li>
+        <li><a href="submit_review.html">Submit a review</a></li>
+        <li><a href="faqs.html" class="active">FAQs</a></li>
+        <li><a href="initiate_call.html">Online Consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="content">
+        <div class="faq-container">
+          <h1>Frequently Asked Questions</h1>
+          <div id="faqContainer">
+            <p>Loading FAQs...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:5002";
+
+    // Fetch FAQs from the backend API and render them as dropdowns
+    async function fetchFaqs() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/get_faqs`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include"
+        });
+        // Parse the JSON response (assuming the API returns a JSON array)
+        const faqs = await response.json();
+        renderFaqs(faqs);
+      } catch (err) {
+        console.error("Error fetching FAQs:", err);
+        document.getElementById("faqContainer").innerHTML = "<p>Error loading FAQs.</p>";
+      }
+    }
+
+    // Render the FAQ items as dropdowns using details/summary
+    function renderFaqs(faqs) {
+      const faqContainer = document.getElementById("faqContainer");
+      if (!faqs || faqs.length === 0) {
+        faqContainer.innerHTML = "<p>No FAQs available.</p>";
+        return;
+      }
+      faqContainer.innerHTML = ""; // Clear any loading message
+
+      faqs.forEach(faq => {
+        const detailsElem = document.createElement("details");
+        const summaryElem = document.createElement("summary");
+        summaryElem.textContent = faq.question;
+        const answerDiv = document.createElement("div");
+        answerDiv.className = "faq-answer";
+        answerDiv.innerHTML = faq.answer;
+
+        detailsElem.appendChild(summaryElem);
+        detailsElem.appendChild(answerDiv);
+        faqContainer.appendChild(detailsElem);
+      });
+    }
+
+    // Logout functionality
+    async function handleLogout() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          credentials: "include"
+        });
+        if (response.ok) {
+          localStorage.removeItem("username");
+          localStorage.removeItem("user_id");
+          localStorage.removeItem("role");
+          window.location.href = "login.html";
+        } else {
+          console.error("Logout failed with status", response.status);
+        }
+      } catch (err) {
+        console.error("Error during logout:", err);
+      }
+    }
+
+    // Call fetchFaqs() once the page loads
+    document.addEventListener("DOMContentLoaded", fetchFaqs);
+  </script>
+</body>
+</html>

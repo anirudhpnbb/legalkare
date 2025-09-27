@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LegalKare - Document Viewer & Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Spinner (if needed for loading) */
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border-left-color: #09f;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* Global Styles */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #F0F2F6;
+      color: #333;
+    }
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar Navigation (Dashboard structure) */
+    .sidebar {
+      width: 250px;
+      background: #001F3F;
+      color: #fff;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      border-right: 2px solid #D4AF37;
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212, 175, 55, 0.2);
+    }
+    /* Main Content Area */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #fff;
+      position: relative;
+    }
+    .main-content::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('images/illustration.svg') no-repeat center center / cover;
+      opacity: 0.1;
+      z-index: -1;
+    }
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+    .content h1 {
+      font-size: 2.5rem;
+      color: #001F3F;
+      margin-bottom: 20px;
+    }
+    /* Document Viewer and Chat Layout */
+    .document-chat-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .document-viewer {
+      flex: 2;
+      background: #fff;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow-y: auto;
+      max-height: 600px;
+    }
+    .chat-container {
+      flex: 1;
+      background: #fff;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      max-height: 600px;
+    }
+    .chat-prompt {
+      margin-bottom: 10px;
+    }
+    .chat-prompt label {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    .chat-prompt select {
+      padding: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .chat-prompt button {
+      padding: 5px 10px;
+      margin-left: 10px;
+      background: #1e88e5;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .chat-prompt button:hover {
+      background: #1565c0;
+    }
+    .chat-prompt .prompt-list {
+      margin-top: 10px;
+    }
+    .chat-history {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      border: 1px solid #eee;
+      padding: 10px;
+      border-radius: 5px;
+      background: #f9f9f9;
+    }
+    .chat-history p {
+      margin: 5px 0;
+    }
+    .chat-form {
+      display: flex;
+      gap: 10px;
+    }
+    .chat-form input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .chat-form button {
+      padding: 8px 16px;
+      border: none;
+      background: #ff7e67;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .chat-form button:hover {
+      background: #ff5a3c;
+    }
+    /* Download Conversation Button */
+    #downloadChatBtn {
+      margin-top: 10px;
+      padding: 8px 16px;
+      border: none;
+      background: #4caf50;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    #downloadChatBtn:hover {
+      background: #43a047;
+    }
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        text-align: center;
+        border-right: none;
+        border-bottom: 2px solid #D4AF37;
+      }
+      .sidebar ul li {
+        margin-bottom: 10px;
+      }
+      .main-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body onload="loadDocumentViewer()">
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <h2>LegalKare</h2>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+       <li><a href="profile_reviews.html" class="lawyer-only">Profile Reviews</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+         <li><a href="initiate_call.html" class="client-only">Online consultation</a></li>
+         <li><a href="lawyer_online_consultation.html" class="lawyer-only">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <div class="content">
+        <h1 id="docTitle">Document Viewer & Chat</h1>
+        <div class="document-chat-container">
+          <!-- Document Viewer -->
+          <div class="document-viewer" id="documentContent">
+            Loading document...
+          </div>
+          <!-- Chat Container -->
+          <div class="chat-container">
+            <!-- Prompt Selection Area -->
+            <div class="chat-prompt">
+              <label for="promptTypeSelect">Select Prompt Type:</label>
+              <select id="promptTypeSelect">
+                <option value="default">Default</option>
+                <option value="private">Private</option>
+                <option value="public">Public</option>
+              </select>
+              <button type="button" id="fetchPromptsBtn">Fetch Prompts</button>
+              <div class="prompt-list" id="promptList">
+                <!-- Prompts will be loaded here as radio buttons -->
+              </div>
+              <label>
+                <input type="checkbox" id="usePromptCheckbox" onchange="useSelectedPrompt()">
+                Use selected prompt in chat
+              </label>
+            </div>
+            <!-- Chat History -->
+            <div class="chat-history" id="chatHistory">
+              <!-- Chat messages will appear here -->
+            </div>
+            <!-- Chat Input Form -->
+            <form id="chatForm" class="chat-form">
+              <input type="text" id="chatQuery" placeholder="Type your question...">
+              <button type="submit">Send</button>
+            </form>
+            <!-- Download Conversation Button -->
+            <button id="downloadChatBtn">Download Conversation</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+
+  <script>
+    // Function to get query parameter value (if needed for document viewer)
+    function getQueryParam(param) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(param);
+    }
+
+    // Function to load the document into the viewer
+    function loadDocument() {
+      // Example: If the file URL is provided as a query parameter "document_key"
+      const docKey = getQueryParam('document_key');
+      if (docKey) {
+        // Adjust the base URL as needed; here we assume files are served from port 5002.
+        const baseURL = 'http://127.0.0.1:5002/';
+        document.getElementById('documentContent').innerHTML =
+          '<iframe src="' + baseURL + encodeURIComponent(docKey) + '" style="width:100%; height:100%; border:0;"></iframe>';
+      } else {
+        document.getElementById('documentContent').innerHTML = 'No document specified.';
+      }
+    }
+
+    // Call loadDocument() if viewing a specific document.
+    // For chat functionality, additional logic would be required.
+
+    // Event listener for DOMContentLoaded to initialize functions.
+    document.addEventListener("DOMContentLoaded", function() {
+      // If you have a query parameter, load the document.
+      loadDocument();
+
+      // (Optional) Add chat-related event listeners here.
+
+      // File explorer click handler (if needed for file list navigation):
+      const fileListContainer = document.getElementById('fileList');
+      if (fileListContainer) {
+        fileListContainer.addEventListener('click', function(event) {
+          const fileItem = event.target.closest('.file-item');
+          if (fileItem) {
+            const filePath = fileItem.getAttribute('data-filepath');
+            if (filePath) {
+              // Redirect to view_document.html with document_key parameter.
+              window.location.href = "view_document.html?document_key=" + encodeURIComponent(filePath);
+            }
+          }
+        });
+      }
+    });
+  </script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+    // If the user is not a lawyer, remove all lawyer-only nav items.
+    if (role !== "lawyer") {
+      document.querySelectorAll("a.lawyer-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+    // Similarly, if you need to remove client-only items for lawyers:
+    if (role === "lawyer") {
+      document.querySelectorAll("a.client-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+  });
+</script>
+</body>
+</html>

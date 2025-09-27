@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LegalKare - FAQs & Reviews</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/main.js" defer></script>
+</head>
+<body onload="loadFAQsReviews()">
+  <div class="bg-illustration">
+    <img src="images/illustration.svg" alt="Background Illustration">
+  </div>
+  <header>
+    <div class="container navbar">
+      <h2>LegalKare</h2>
+      <nav>
+        <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+      </nav>
+    </div>
+  </header>
+  <main class="container">
+    <h1>Frequently Asked Questions</h1>
+    <div id="faqsSection">
+      <!-- FAQs loaded via loadFAQsReviews() -->
+    </div>
+    <h2>Submit a Review</h2>
+    <form id="reviewForm">
+      <label for="lawyer_id">Lawyer ID:</label>
+      <input type="text" id="lawyer_id" name="lawyer_id" required>
+      <label for="review">Review:</label>
+      <textarea id="review" name="review" rows="4" required></textarea>
+      <label for="rating">Rating (1 to 5):</label>
+      <input type="number" id="rating" name="rating" min="1" max="5" value="3" required>
+      <button type="submit">Submit Review</button>
+    </form>
+  </main>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+    // If the user is not a lawyer, remove all lawyer-only nav items.
+    if (role !== "lawyer") {
+      document.querySelectorAll("a.lawyer-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+    // Similarly, if you need to remove client-only items for lawyers:
+    if (role === "lawyer") {
+      document.querySelectorAll("a.client-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+  });
+</script>
+</body>
+</html>

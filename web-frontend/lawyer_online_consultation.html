@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LegalKare - Online Consultation (Lawyer)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Include Twilio Video SDK -->
+  <script src="https://media.twiliocdn.com/sdk/js/video/releases/2.21.0/twilio-video.min.js"></script>
+  <!-- Include shared functions -->
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Container: Sidebar + main content */
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar styling */
+    .sidebar {
+      width: 250px;
+      background: #001F3F;
+      color: #fff;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      border-right: 2px solid #D4AF37;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212,175,55,0.2);
+    }
+    /* Main content styling */
+    .main-content {
+      flex: 1;
+      padding: 20px;
+      background: #F0F2F6;
+      color: #333;
+      overflow-y: auto;
+    }
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #001F3F;
+    }
+    .consultation-item {
+      border-bottom: 1px solid #ccc;
+      padding: 10px 0;
+    }
+    .buttons {
+      margin-top: 10px;
+    }
+    button {
+      background: #001F3F;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      margin-right: 10px;
+      cursor: pointer;
+    }
+    button.reject {
+      background: #B22222;
+    }
+    .video-container {
+      margin-top: 20px;
+    }
+    .video-container video {
+      width: 320px;
+      height: 240px;
+      background: #000;
+      margin-right: 10px;
+    }
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+  </style>
+
+  <!-- Role check: Only allow lawyer UID0013 -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const role = localStorage.getItem("role") ? localStorage.getItem("role").toLowerCase() : "";
+      const userId = localStorage.getItem("user_id") || "";
+      if (role !== "lawyer" || userId !== "UID0013") {
+        alert("Access denied. This page is only accessible to lawyer UID0013.");
+        window.location.href = "login.html";
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h2>LegalKare</h2>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+        <li><a href="profile_reviews.html" class="lawyer-only">Profile Reviews</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+        <li><a href="initiate_call.html" class="client-only">Online consultation</a></li>
+        <li><a href="lawyer_online_consultation.html" class="lawyer-only">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="content">
+        <h1>Online Consultations (Lawyer side) - UID0013</h1>
+        <div id="consultationsList">
+          <p>Loading consultations...</p>
+        </div>
+        <!-- Container to display local/remote video -->
+        <div class="video-container" id="videoContainer"></div>
+        <button id="endCallBtn" style="display:none;">End Call</button>
+        <p id="statusMsg"></p>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:5002";
+    let activeRoom = null;
+    let pollInterval = null;
+    let currentConsultationId = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchConsultations();
+    });
+
+    async function fetchConsultations() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/lawyer/consultations`, {
+          credentials: "include"
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          document.getElementById("consultationsList").innerHTML = `<p>Error: ${data.message}</p>`;
+          return;
+        }
+        if (data.status === "success") {
+          renderConsultations(data.consultations);
+        } else {
+          document.getElementById("consultationsList").innerHTML = `<p>${data.message}</p>`;
+        }
+      } catch (err) {
+        console.error("fetchConsultations error:", err);
+        document.getElementById("consultationsList").innerHTML = "<p>Error loading consultations.</p>";
+      }
+    }
+
+    function renderConsultations(consultations) {
+      const container = document.getElementById("consultationsList");
+      if (!consultations || consultations.length === 0) {
+        container.innerHTML = "<p>No pending or accepted consultations.</p>";
+        return;
+      }
+      container.innerHTML = "";
+      consultations.forEach(cons => {
+        const div = document.createElement("div");
+        div.classList.add("consultation-item");
+        div.innerHTML = `
+          <p><strong>Consultation ID:</strong> ${cons.consultation_id}</p>
+          <p><strong>Client:</strong> ${cons.client_id}</p>
+          <p><strong>Status:</strong> ${cons.status}</p>
+        `;
+        if (cons.status === "pending") {
+          const acceptBtn = document.createElement("button");
+          acceptBtn.textContent = "Accept";
+          acceptBtn.onclick = () => handleAccept(cons.consultation_id);
+          const rejectBtn = document.createElement("button");
+          rejectBtn.textContent = "Reject";
+          rejectBtn.classList.add("reject");
+          rejectBtn.onclick = () => handleReject(cons.consultation_id);
+          div.appendChild(acceptBtn);
+          div.appendChild(rejectBtn);
+        }
+        else if (cons.status === "accepted") {
+          // Only show join call if the consultation is accepted (not ended)
+          const joinBtn = document.createElement("button");
+          joinBtn.textContent = "Join Call";
+          joinBtn.onclick = () => joinAcceptedCall(cons.consultation_id, cons.room_name);
+          div.appendChild(joinBtn);
+        }
+        container.appendChild(div);
+      });
+    }
+
+    async function handleAccept(consultationId) {
+      if (!confirm("Accept this consultation?")) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/lawyer/consultations/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ consultation_id: consultationId, action: "accept" })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "success") {
+          alert("Consultation accepted. You can now click 'Join Call'.");
+          fetchConsultations();
+        } else {
+          alert(`Error: ${data.message}`);
+        }
+      } catch (err) {
+        console.error("Accept error:", err);
+      }
+    }
+
+    async function handleReject(consultationId) {
+      if (!confirm("Reject this consultation?")) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/lawyer/consultations/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ consultation_id: consultationId, action: "reject" })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "success") {
+          alert("Consultation rejected. The client will be disconnected.");
+          fetchConsultations();
+        } else {
+          alert(`Error: ${data.message}`);
+        }
+      } catch (err) {
+        console.error("Reject error:", err);
+      }
+    }
+
+    async function joinAcceptedCall(consultationId, roomName) {
+      if (!confirm("Join this call now? Make sure your mic/camera are ready.")) return;
+      currentConsultationId = consultationId;
+      try {
+        const res = await fetch(`${API_BASE_URL}/lawyer/consultations/respond`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ consultation_id: consultationId, action: "accept" })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "success") {
+          const token = data.token; // token is a string
+          roomName = data.room_name;
+          startTwilioVideo(token, roomName);
+          pollInterval = setInterval(pollConsultationStatus, 3000);
+          document.getElementById("endCallBtn").style.display = "inline-block";
+        } else {
+          alert(`Error joining call: ${data.message}`);
+        }
+      } catch (err) {
+        console.error("joinAcceptedCall error:", err);
+      }
+    }
+
+    // Start Twilio Video: Force an explicit camera/mic prompt
+    async function startTwilioVideo(token, roomName) {
+      try {
+        // Create local tracks; this should prompt for camera/mic permissions if needed.
+        const localTracks = await Twilio.Video.createLocalTracks({
+          audio: true,
+          video: { width: 640, height: 480 }
+        });
+        // Connect using the provided token, room name, and local tracks.
+        const room = await Twilio.Video.connect(token, {
+          name: roomName,
+          tracks: localTracks
+        });
+        console.log("Lawyer connected to room:", room.name);
+        activeRoom = room;
+        document.getElementById("statusMsg").textContent = `Connected to ${roomName}`;
+        const container = document.getElementById("videoContainer");
+        container.innerHTML = "<h3>In call...</h3>";
+        // Attach local tracks.
+        room.localParticipant.tracks.forEach(pub => {
+          if (pub.track) {
+            container.appendChild(pub.track.attach());
+          }
+        });
+        // Attach remote participant tracks.
+        room.participants.forEach(p => handleParticipantConnected(p, container));
+        room.on("participantConnected", p => handleParticipantConnected(p, container));
+        room.on("participantDisconnected", p => detachParticipantTracks(p, container));
+        room.once("disconnected", err => {
+          console.log("Lawyer disconnected from room:", err);
+          room.localParticipant.tracks.forEach(pub => {
+            if (pub.track) pub.track.stop();
+          });
+          container.innerHTML = "<p>Call ended.</p>";
+          // Refresh the consultations list so that "Join Call" is removed.
+          fetchConsultations();
+        });
+      } catch (err) {
+        console.error("startTwilioVideo error:", err);
+        alert(`Twilio connect error: ${err.message}`);
+      }
+    }
+
+    function handleParticipantConnected(participant, container) {
+      console.log("Participant connected:", participant.identity);
+      participant.tracks.forEach(pub => {
+        if (pub.isSubscribed) {
+          attachTrack(pub.track, participant.identity, container);
+        }
+      });
+      participant.on("trackSubscribed", track => attachTrack(track, participant.identity, container));
+      participant.on("trackUnsubscribed", track => detachTrack(track, participant.identity, container));
+    }
+
+    function attachTrack(track, identity, container) {
+      const el = track.attach();
+      el.dataset.identity = identity;
+      container.appendChild(el);
+    }
+
+    function detachTrack(track, identity, container) {
+      track.detach().forEach(el => el.remove());
+    }
+
+    function detachParticipantTracks(participant, container) {
+      participant.tracks.forEach(pub => {
+        if (pub.track) detachTrack(pub.track, participant.identity, container);
+      });
+    }
+
+    // End call button: Lawyer manually ends the call.
+    document.getElementById("endCallBtn").addEventListener("click", async () => {
+      if (activeRoom) {
+        activeRoom.disconnect();
+        activeRoom = null;
+      }
+      if (currentConsultationId) {
+        await fetch(`${API_BASE_URL}/lawyer/consultations/end`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ consultation_id: currentConsultationId })
+        });
+      }
+      clearInterval(pollInterval);
+      document.getElementById("statusMsg").textContent = "You ended the call.";
+      document.getElementById("endCallBtn").style.display = "none";
+      // Refresh consultations list so that "Join Call" is removed.
+      fetchConsultations();
+    });
+
+    // Poll consultation status (if the client ends or rejects the call)
+    async function pollConsultationStatus() {
+      if (!currentConsultationId) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/lawyer/consultations/status?consultation_id=${currentConsultationId}`, {
+          credentials: "include"
+        });
+        const data = await res.json();
+        if (res.ok && data.status === "success") {
+          const st = data.consultation_status; // e.g., "rejected", "ended"
+          if (st === "rejected" || st === "ended") {
+            document.getElementById("statusMsg").textContent =
+              st === "rejected" ? "Client call was rejected or canceled." : "Client ended the call.";
+            if (activeRoom) {
+              activeRoom.disconnect();
+              activeRoom = null;
+            }
+            clearInterval(pollInterval);
+            document.getElementById("endCallBtn").style.display = "none";
+            // Refresh the consultations list so that "Join Call" is removed.
+            fetchConsultations();
+          }
+        }
+      } catch (err) {
+        console.error("pollConsultationStatus error:", err);
+      }
+    }
+
+    // Common logout
+    async function handleLogout() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          credentials: "include"
+        });
+        if (response.ok) {
+          localStorage.removeItem("username");
+          localStorage.removeItem("user_id");
+          localStorage.removeItem("role");
+          window.location.href = "login.html";
+        } else {
+          console.error("Logout failed with status", response.status);
+        }
+      } catch (err) {
+        console.error("Error during logout:", err);
+      }
+    }
+
+    // Remove mismatched navigation links based on role
+    document.addEventListener("DOMContentLoaded", function () {
+      const role = localStorage.getItem("role")
+        ? localStorage.getItem("role").trim().toLowerCase()
+        : "";
+      if (role !== "lawyer") {
+        document.querySelectorAll("a.lawyer-only").forEach(link => link.parentElement.remove());
+      }
+      if (role === "lawyer") {
+        document.querySelectorAll("a.client-only").forEach(link => link.parentElement.remove());
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LegalKare - Profile</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Global Styles */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #202A44; /* Dark background */
+    }
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar Navigation (Dashboard structure) */
+    .sidebar {
+      width: 250px;
+      background: #001F3F; /* Navy blue background */
+      color: #FFFFFF;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+      border-right: 2px solid #D4AF37; /* Gold accent border */
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212, 175, 55, 0.2); /* Subtle gold highlight */
+    }
+    /* Main Content Area */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6; /* Light background for content */
+      color: #333; /* Dark text for readability */
+      position: relative;
+    }
+    .main-content::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('images/illustration.svg') no-repeat center center / cover;
+      opacity: 0.1;
+      z-index: -1;
+    }
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+    .content h1 {
+      font-size: 2.5rem;
+      color: #001F3F; /* Navy blue heading */
+      margin-bottom: 20px;
+    }
+    /* Profile Container */
+    .profile-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+    }
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .profile-header img {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #D4AF37; /* Gold border */
+    }
+    .profile-details p {
+      font-size: 1.1rem;
+      margin: 10px 0;
+      color: #555;
+    }
+    .profile-details p strong {
+      color: #333;
+    }
+    /* Edit Form Styles */
+    .edit-form {
+      margin-top: 20px;
+      display: none;
+    }
+    .edit-form input,
+    .edit-form textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #D4AF37; /* Gold border */
+      border-radius: 5px;
+      font-size: 1rem;
+      background: #F0F2F6;
+      color: #333;
+    }
+    .edit-form button {
+      padding: 10px 20px;
+      margin-right: 10px;
+      border: none;
+      background: #001F3F;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .edit-form button:hover {
+      background: #001F3F;
+    }
+    /* Footer */
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #FFFFFF;
+      font-size: 0.9rem;
+      margin-top: 2rem;
+    }
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        text-align: center;
+        border-right: none;
+        border-bottom: 2px solid #D4AF37;
+      }
+      .sidebar ul li {
+        margin-bottom: 10px;
+      }
+      .main-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body onload="loadProfile()">
+  <!-- Optional Background Illustration -->
+  <div class="bg-illustration">
+    <img src="images/illustration.svg" alt="Background Illustration">
+  </div>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo-container">
+  <a href="index.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+       <li><a href="profile_reviews.html" class="lawyer-only">Profile Reviews</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+         <li><a href="initiate_call.html" class="client-only">Online consultation</a></li>
+         <li><a href="lawyer_online_consultation.html" class="lawyer-only">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <div class="content">
+        <h1>Your Profile</h1>
+        <div class="profile-container">
+          <div class="profile-header">
+            <!-- Profile Picture -->
+            <img id="profilePic" src="https://via.placeholder.com/150" alt="Profile Picture">
+            <!-- Profile Details -->
+            <div id="profileInfo" class="profile-details">
+              <!-- Read-only details will be populated here -->
+            </div>
+          </div>
+          <button id="editProfileBtn" onclick="toggleEditMode()">Edit Profile</button>
+          <div id="editFormContainer" class="edit-form">
+            <!-- Optional: New Profile Picture Upload -->
+            <label for="editProfilePic">New Profile Picture (optional):</label>
+            <input type="file" id="editProfilePic" accept="image/*">
+            <input type="text" id="editName" placeholder="Full Name">
+            <input type="email" id="editEmail" placeholder="Email">
+            <input type="text" id="editGender" placeholder="Gender">
+            <textarea id="editAddresses" placeholder="Addresses"></textarea>
+            <button onclick="saveProfileEdits()">Save Changes</button>
+            <button onclick="toggleEditMode()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+    // If the user is not a lawyer, remove all lawyer-only nav items.
+    if (role !== "lawyer") {
+      document.querySelectorAll("a.lawyer-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+    // Similarly, if you need to remove client-only items for lawyers:
+    if (role === "lawyer") {
+      document.querySelectorAll("a.client-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+  });
+</script>
+</body>
+</html>

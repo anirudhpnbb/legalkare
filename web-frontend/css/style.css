@@ -1,0 +1,282 @@
+/* Reset and Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #FFFFFF; /* White text */
+  line-height: 1.6;
+}
+
+/* Animated Gradient Background */
+html, body {
+  min-height: 100vh;
+  background: #202A44; /* Navy blue background */
+  position: relative;
+}
+
+/* Background Illustration */
+.bg-illustration {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -2;
+  opacity: 0.1;
+  overflow: hidden;
+}
+.bg-illustration img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+/* Navbar */
+.navbar {
+  background: #001F3F; /* Navy blue background */
+  /* Removed backdrop-filter since we now want a solid color */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  border-bottom: 2px solid #D4AF37; /* Gold border */
+}
+.navbar h2 {
+  font-size: 1.8rem;
+  color: #FFFFFF;
+}
+.navbar ul {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+}
+.navbar ul li a {
+  text-decoration: none;
+  color: #FFFFFF;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+}
+.navbar ul li a:hover,
+.navbar ul li a.active {
+  color: #D4AF37; /* Gold on hover */
+}
+
+
+/* Hero Section */
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 50px 0;
+}
+.hero-text {
+  text-align: center; /* Center all text within the hero area */
+  margin: 1 auto;
+  width: 100%;
+}
+.hero-text h1 {
+  font-size: 3rem;
+  color: #FFFFFF;
+}
+.hero-text p {
+  font-size: 1.2rem;
+  color: #FFFFFF;
+  margin-top: 20px;
+  margin-bottom: 70px;
+}
+/* Updated Button Style */
+.btn {
+  display: inline-block;
+  padding: 12px 24px;
+  font-size: 1rem;
+  color: #FFFFFF;
+  background-color: #202A44; /* Navy blue background */
+  border: 2px solid #D4AF37; /* Gold border */
+  border-radius: 25px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  text-decoration: none;
+  margin-right: 10px;
+  margin-bottom: 10px;
+}
+.btn:hover {
+  color: #D4AF37; /* Gold text on hover */
+}
+
+/* Features Section */
+.features {
+  padding: 50px 0;
+  text-align: center;
+}
+.features h2 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  color: #FFFFFF;
+}
+.feature-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+.feature {
+  background: #202A44; /* Navy blue background for feature cards */
+  border: 1px solid #D4AF37; /* Gold border */
+  border-radius: 10px;
+  padding: 20px;
+  flex: 1 1 250px;
+  max-width: 300px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.feature:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(212, 175, 55, 0.4);
+}
+.feature h3 {
+  margin-top: 15px;
+  font-size: 1.3rem;
+  color: #FFFFFF;
+}
+.feature p {
+  font-size: 1rem;
+  color: #FFFFFF;
+}
+
+/* Glassmorphism for Forms and Cards */
+.form-container,
+.profile-container {
+  background: rgba(0, 0, 0, 0.95);
+  border-radius: 15px;
+  padding: 2rem;
+  margin: 100px auto;
+  max-width: 500px;
+  box-shadow: 0 8px 16px rgba(212, 175, 55, 0.4);
+  text-align: center;
+  color: #FFFFFF;
+}
+.form-container label,
+.profile-details p {
+  text-align: left;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+.form-container input,
+.form-container select,
+.form-container textarea,
+.edit-form input {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background: #202A44;
+  color: #FFFFFF;
+  border: 1px solid #D4AF37;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+/* Updated Form & Edit Button Style */
+.form-container button,
+.edit-form button {
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #D4AF37; /* Gold border */
+  border-radius: 5px;
+  background: #202A44; /* Navy blue background */
+  color: #FFFFFF;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  margin: 0.5rem;
+}
+.form-container button:hover,
+.edit-form button:hover {
+  color: #D4AF37; /* Gold text on hover */
+}
+
+/* Footer */
+footer {
+  background: #001F3F;
+  border-top: 1px solid #D4AF37;
+  padding: 1rem;
+  text-align: center;
+  color: #FFFFFF;
+  font-size: 0.9rem;
+  margin-top: 2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .navbar ul {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .hero {
+    flex-direction: column;
+    text-align: center;
+  }
+  .feature-grid {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Spinner */
+.spinner {
+  border: 4px solid rgba(212, 175, 55, 0.3);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border-left-color: #D4AF37;
+  animation: spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Tooltip */
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 300px;
+  background-color: #202A44; /* Navy blue background */
+  color: #FFFFFF;
+  text-align: left;
+  border: 1px solid #D4AF37;
+  border-radius: 6px;
+  padding: 10px;
+  position: absolute;
+  z-index: 1;
+  top: 125%;
+  left: 50%;
+  margin-left: -150px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+.container.navbar {
+  display: flex;
+  justify-content: space-between; /* Spreads out the elements */
+  align-items: center; /* Aligns them vertically */
+  padding: 10px 20px;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+}
+
+.logo {
+  height: 50px; /* Adjust as needed */
+  width: auto; /* Keeps aspect ratio */
+  max-width: 150px; /* Prevents it from being too large */
+}

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Ensure proper mobile scaling -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LegalKare - Home</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/main.js" defer></script>
+  <!-- Include Lottie Player from CDN -->
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <style>
+    /* Global Styles */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #202A44; /* Dark background */
+      color: #FFFFFF;
+    }
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar Navigation (Dashboard structure) */
+    .sidebar {
+      width: 250px;
+      background: #001F3F; /* Navy blue background */
+      color: #FFFFFF;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+      border-right: 2px solid #D4AF37; /* Gold accent border */
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212, 175, 55, 0.2); /* Subtle gold highlight */
+    }
+    /* Main Content Area */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6; /* Light background for content */
+      color: #333; /* Dark text for readability */
+      position: relative;
+      overflow: hidden;
+    }
+    /* (Optional) Background Illustration */
+    .bg-illustration {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -2;
+      opacity: 0.1;
+      overflow: hidden;
+    }
+    .bg-illustration img {
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+    }
+    /* Content Styles */
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+    .content h1 {
+      font-size: 2.8rem;
+      color: #001F3F; /* Navy blue heading */
+      margin-bottom: 20px;
+    }
+    .content p {
+      font-size: 1.2rem;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    /* Hero Animation */
+    .hero-animation {
+      text-align: center;
+      margin: 40px 0;
+    }
+    /* Feature Cards (Key Features) */
+    .features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 40px;
+    }
+    .feature-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 20px;
+      width: 280px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-5px);
+    }
+    .feature-card h3 {
+      font-size: 1.4rem;
+      margin-bottom: 10px;
+      color: #001F3F;
+    }
+    .feature-card p {
+      font-size: 1rem;
+      color: #666;
+    }
+    /* Footer */
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #FFFFFF;
+      font-size: 0.9rem;
+      margin-top: 2rem;
+    }
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        text-align: center;
+        border-right: none;
+        border-bottom: 2px solid #D4AF37;
+      }
+      .sidebar ul li {
+        margin-bottom: 10px;
+      }
+      .main-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body onload="loadDashboard()">
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo-container">
+  <a href="index.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+       <li><a href="profile_reviews.html" class="lawyer-only">Profile Reviews</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+         <li><a href="initiate_call.html" class="client-only">Online consultation</a></li>
+         <li><a href="lawyer_online_consultation.html" class="lawyer-only">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <div class="content">
+        <!-- The welcome message is now updated using localStorage -->
+        <h1>Welcome, <span id="welcomeUser"></span>!</h1>
+        <p>
+          Welcome to LegalKare—your comprehensive legal services platform. Whether you're a legal professional or a client, our suite of tools is designed to streamline your legal workflow. Manage documents, schedule appointments, collaborate in teams, and interact with our advanced legal assistant—all in one place.
+        </p>
+        <div class="hero-animation">
+          <lottie-player
+            src="https://assets8.lottiefiles.com/packages/lf20_5ngs2ksb.json"
+            background="transparent"
+            speed="1"
+            style="width: 300px; height: 300px;"
+            loop
+            autoplay>
+          </lottie-player>
+        </div>
+        <h2>Our Features</h2>
+        <div class="features">
+          <div class="feature-card">
+            <h3>User Authentication</h3>
+            <p>Secure registration and login for seamless access.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Document Management</h3>
+            <p>Upload, organize, and manage your legal documents efficiently.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Appointment Booking</h3>
+            <p>Schedule appointments with trusted legal professionals.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Team Management</h3>
+            <p>Create and manage teams to collaborate on legal projects.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Search Documents</h3>
+            <p>Quickly find relevant documents with our powerful search tool.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Interactive Chat</h3>
+            <p>Chat with our legal assistant for immediate assistance and insights.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+
+  <!-- Script to update welcome message with the actual full name from localStorage -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Retrieve the full name from localStorage.
+      // Ensure that elsewhere (like in your profile page) you use:
+      // localStorage.setItem('fullName', 'Actual User Name');
+      const fullName = localStorage.getItem('fullName');
+      // If a full name is stored, update the welcome message.
+      if (fullName) {
+        document.getElementById('welcomeUser').textContent = fullName;
+      } else {
+        // If not set, you might choose to redirect to login or show a default message.
+        document.getElementById('welcomeUser').textContent = 'Guest';
+      }
+    });
+    <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const role = localStorage.getItem('role') ? localStorage.getItem('role').trim().toLowerCase() : '';
+    if (role !== 'lawyer') {
+      const sidebarLinks = document.querySelectorAll('aside.sidebar ul li a');
+      sidebarLinks.forEach(link => {
+        if (link.getAttribute('href') === 'judgement_search.html') {
+          link.parentElement.remove();
+        }
+      });
+    }
+  });
+</script>
+  <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+    // If the user is not a lawyer, remove all lawyer-only nav items.
+    if (role !== "lawyer") {
+      document.querySelectorAll("a.lawyer-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+    // Similarly, if you need to remove client-only items for lawyers:
+    if (role === "lawyer") {
+      document.querySelectorAll("a.client-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+  });
+</script>
+</body>
+</html>

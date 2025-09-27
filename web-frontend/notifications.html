@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LegalKare - Notifications</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Global Styles */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #202A44; /* Dark background */
+      color: #333;
+    }
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar Navigation (Dashboard structure) */
+    .sidebar {
+      width: 250px;
+      background: #001F3F; /* Navy blue background */
+      color: #fff;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+      border-right: 2px solid #D4AF37; /* Gold accent border */
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212, 175, 55, 0.2);
+    }
+    /* Main Content Area */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6; /* Light background for content */
+      position: relative;
+      overflow: auto;
+    }
+    .main-content::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('images/illustration.svg') no-repeat center center / cover;
+      opacity: 0.1;
+      z-index: -1;
+    }
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+    .content h1 {
+      font-size: 2.5rem;
+      color: #001F3F; /* Navy blue heading */
+      margin-bottom: 20px;
+    }
+    /* Notifications List Styles */
+    #notificationsList {
+      margin-top: 20px;
+    }
+    .notification {
+      border: 1px solid #D4AF37; /* Gold border */
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      background: #fff;
+    }
+    .notification p {
+      margin: 5px 0;
+      color: #555;
+    }
+    /* Footer */
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+      font-size: 0.9rem;
+      margin-top: 2rem;
+    }
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        text-align: center;
+        border-right: none;
+        border-bottom: 2px solid #D4AF37;
+      }
+      .sidebar ul li {
+        margin-bottom: 10px;
+      }
+      .main-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body onload="loadNotifications()">
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo-container">
+  <a href="index.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+       <li><a href="profile_reviews.html" class="lawyer-only">Profile Reviews</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+         <li><a href="initiate_call.html" class="client-only">Online consultation</a></li>
+         <li><a href="lawyer_online_consultation.html" class="lawyer-only">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <div class="content">
+        <h1>Your Notifications</h1>
+        <div id="notificationsList">
+          <!-- Notifications will be loaded here via loadNotifications() -->
+          <!-- Example static notification for demonstration:
+          <div class="notification">
+            <p><strong>Reminder:</strong> Your appointment is scheduled for 03/15/2025 at 10:00 AM.</p>
+          </div>
+          -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+    // If the user is not a lawyer, remove all lawyer-only nav items.
+    if (role !== "lawyer") {
+      document.querySelectorAll("a.lawyer-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+    // Similarly, if you need to remove client-only items for lawyers:
+    if (role === "lawyer") {
+      document.querySelectorAll("a.client-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LegalKare - Login</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Use the defer attribute to ensure the script runs after the DOM is loaded -->
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Remove full-page flex centering so header and footer remain in place */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #202A44;
+    }
+    /* The header and footer styling are taken from your main style.css */
+
+    /* Center the login container on the page */
+    .login-container {
+      background: #001F3F;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      width: 300px;
+      text-align: center;
+      margin: 100px auto; /* Centers the container horizontally and adds vertical spacing */
+    }
+    .login-container h2 {
+      margin-bottom: 1rem;
+    }
+    .login-container form {
+      display: flex;
+      flex-direction: column;
+    }
+    .login-container input {
+      padding: 8px;
+      margin-bottom: 1rem;
+      border: 1px solid #D4AF37; /* Gold border for inputs */
+      border-radius: 5px;
+    }
+    .login-container button {
+      padding: 10px;
+      background: #202A44;
+      border: 1px solid #D4AF37; /* Gold border for button */
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .login-container button:hover {
+      background: #202A44;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container navbar">
+      <div class="logo-container">
+  <a href="index.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About Us</a></li>
+        <li><a href="services.html">Services</a></li>
+        <li><a href="blog.html">Blog</a></li>
+        <li><a href="login.html">Login</a></li>
+        <li><a href="register.html" style="text-decoration:underline;">Register</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <div class="login-container">
+    <h2>Login to LegalKare</h2>
+    <form id="loginForm">
+      <label for="username">Username:</label>
+      <input type="text" id="username" name="username" required>
+
+      <label for="password">Password:</label>
+      <input type="password" id="password" name="password" required>
+
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+<script>
+  localStorage.setItem("user_id", data.data.user_id)
+  console.log(localStorage)
+</script>
+</body>
+</html>

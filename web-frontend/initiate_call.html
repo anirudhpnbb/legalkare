@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LegalKare - Initiate Video Call (Client)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Link to your shared stylesheet -->
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Shared JS functions (login, logout, etc.) -->
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Consistent container and sidebar styling */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #202A44;
+      color: #333;
+    }
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 250px;
+      background: #001F3F;
+      color: #fff;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      border-right: 2px solid #D4AF37;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212,175,55,0.2);
+    }
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6;
+      overflow-y: auto;
+    }
+    .content {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #001F3F;
+    }
+    .btn {
+      display: inline-block;
+      background: #001F3F;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 5px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      border: none;
+    }
+    .btn:hover {
+      background: #002855;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+    }
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+      font-size: 0.9rem;
+      margin-top: 2rem;
+    }
+  </style>
+
+  <!-- Access control: This page is for client users -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const role = localStorage.getItem("role") ? localStorage.getItem("role").toLowerCase() : "";
+      if (role !== "client") {
+        alert("Access denied. This page is only accessible to clients.");
+        window.location.href = "login.html";
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo-container">
+        <a href="index.html">
+          <img src="logo.png" alt="LegalKare Logo" class="logo">
+        </a>
+      </div>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="book_appointment.html">Book Appointment</a></li>
+        <li><a href="submit_review.html">Submit a review</a></li>
+        <li><a href="faqs.html">FAQs</a></li>
+        <li><a href="initiate_call.html" class="active">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="content">
+        <h1>Initiate Video Call with Lawyer UID0013</h1>
+        <p>
+          Click the button below to request a video call session with lawyer <strong>UID0013</strong>.
+        </p>
+        <button class="btn" id="callButton">Initiate Call</button>
+        <div class="result" id="callResult">
+          <!-- Call result will be shown here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:5002";
+
+    document.getElementById("callButton").addEventListener("click", async () => {
+      const callResultDiv = document.getElementById("callResult");
+      callResultDiv.textContent = "Requesting call setup...";
+      try {
+        // Send a POST to initiate the call with lawyer UID0013
+        const response = await fetch(`${API_BASE_URL}/initiate_video_call`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ lawyer_id: "UID0013" })
+        });
+        if (!response.ok) {
+          const errorText = await response.text();
+          callResultDiv.textContent = `Error initiating call: ${errorText} (status ${response.status})`;
+          return;
+        }
+        const data = await response.json();
+        if (data.status === "success") {
+          // Display the room name and join URL (if provided)
+          callResultDiv.innerHTML = `
+            <p>Call setup successful!</p>
+            <p>Room Name: <strong>${data.room_name}</strong></p>
+            <p>To join the call, click <a href="${data.join_url || '#'}" target="_blank">here</a>.</p>
+          `;
+        } else {
+          callResultDiv.textContent = `Error: ${data.message}`;
+        }
+      } catch (err) {
+        console.error("Error during call initiation:", err);
+        callResultDiv.textContent = `Request failed: ${err.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

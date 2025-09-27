@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LegalKare - Search Documents</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- External CSS -->
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Inline styles to adjust layout and widths -->
+  <style>
+    /* Flex container so that sidebar and main content are side by side */
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar styling (same as Teams) */
+    .sidebar {
+      width: 250px;
+      background: #001F3F;
+      color: #fff;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+      border-right: 2px solid #D4AF37;
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212, 175, 55, 0.2);
+    }
+    /* Main Content: placed beside sidebar */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6;
+      color: #333;
+      overflow-y: auto;
+    }
+    .content {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    /* Search container styled similar to Teams containers */
+    .search-container {
+      background: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 40px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      color: #333;
+    }
+    .search-container h1 {
+      font-size: 2.5rem;
+      color: #001F3F;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .search-container form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .search-container label {
+      font-weight: 600;
+      color: #001F3F;
+    }
+    .search-container input[type="text"],
+    .search-container input[type="number"],
+    .search-container select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      font-size: 1rem;
+      background: #F0F2F6;
+      color: #333;
+    }
+    .search-container button {
+      padding: 10px;
+      background: #001F3F;
+      color: #fff;
+      border: 2px solid #D4AF37;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      width: 100%;
+    }
+    .search-container button:hover {
+      background: #002855;
+    }
+    #searchSpinner {
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #001F3F;
+    }
+    /* Results container styling */
+    #resultsContainer {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 10px;
+      color: #333;
+    }
+    #resultsContainer .result {
+      display: block;
+      margin-bottom: 15px;
+      border: 1px solid #D4AF37;
+      padding: 15px;
+      border-radius: 5px;
+      background: #fff;
+      color: #333;
+    }
+    /* Tooltip styling */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      cursor: pointer;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 450px;
+      background-color: #202A44 !important;
+      color: #FFFFFF !important;
+      text-align: left;
+      border: 1px solid #D4AF37;
+      border-radius: 6px;
+      padding: 10px;
+      position: absolute;
+      z-index: 9999;
+      top: 125%;
+      left: 50%;
+      margin-left: -225px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+    /* Truncate file name with ellipsis */
+    .result-filename {
+      max-width: 250px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      margin: 0;
+    }
+    /* Two-column layout for results */
+    .column {
+      float: left;
+      width: 48%;
+      margin-right: 4%;
+    }
+    .column:last-child {
+      margin-right: 0;
+    }
+    .clearfix::after {
+      content: "";
+      clear: both;
+      display: table;
+    }
+    /* Footer styling */
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+      font-size: 0.9rem;
+    }
+  </style>
+  <!-- XLSX library for reading Excel classification data -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="js/main.js" defer></script>
+  <!-- Access control: Only allow lawyers to view this page -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+      if (role !== "lawyer") {
+        alert("Access denied. This page is only accessible to lawyers.");
+        window.location.href = "login.html";
+      }
+    });
+  </script>
+  <!-- Remove 'Search Docs' link from the nav bar if not a lawyer -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+      if (role !== "lawyer") {
+        const searchLink = document.querySelector("aside.sidebar ul li a[href='search_docs.html']");
+        if (searchLink && searchLink.parentElement) {
+          searchLink.parentElement.remove();
+        }
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="logo-container">
+  <a href="index.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+       <li><a href="profile_reviews.html" class="lawyer-only">Profile Reviews</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+         <li><a href="initiate_call.html" class="client-only">Online consultation</a></li>
+         <li><a href="lawyer_online_consultation.html" class="lawyer-only">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+
+    </aside>
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="content">
+        <!-- Search Container -->
+        <div class="search-container">
+          <h1>Search Documents</h1>
+          <!-- Role Selection -->
+          <div>
+            <label for="roleSelect">Select Your Role:</label>
+            <select id="roleSelect">
+              <option value="defense">Defense</option>
+              <option value="state">State</option>
+              <option value="plaintiff">Plaintiff</option>
+              <option value="petitioner">Petitioner</option>
+            </select>
+          </div>
+          <!-- Search Form -->
+          <form id="searchForm" onsubmit="event.preventDefault(); searchDocuments();">
+            <div>
+              <label for="query">Enter your search query:</label>
+              <input type="text" id="query" name="query" placeholder="Search query" required>
+            </div>
+            <div>
+              <label for="topK">Number of top results:</label>
+              <input type="number" id="topK" name="topK" min="1" max="1000" value="100" required>
+            </div>
+            <button type="submit">Search</button>
+          </form>
+          <!-- Loading Spinner -->
+          <div id="searchSpinner" style="display: none;">
+            <span class="spinner"></span> Searching...
+          </div>
+        </div>
+        <!-- Search Results Container -->
+        <div id="resultsContainer"></div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:5002";
+    async function parseJsonOrThrow(response) {
+      try {
+        return await response.json();
+      } catch (err) {
+        throw new Error("Invalid JSON response.");
+      }
+    }
+    async function loadClassificationData() {
+      try {
+        const response = await fetch("classified_results.xlsx");
+        if (!response.ok) throw new Error("Failed to load classification file.");
+        const data = await response.arrayBuffer();
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        const mapping = {};
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i];
+          if (row && row.length >= 2) {
+            const filename = row[0].toString().trim();
+            const classification = row[1].toString().toLowerCase();
+            let winner = "unknown";
+            if (classification.includes("winner:")) {
+              const parts = classification.split("winner:");
+              if (parts.length > 1) {
+                winner = parts[1].split(",")[0].trim();
+              }
+            }
+            mapping[filename] = winner;
+          }
+        }
+        return mapping;
+      } catch (err) {
+        console.error(err);
+        return {};
+      }
+    }
+    async function getPresignedUrl(objectKey) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/generate_presigned_url`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ object_key: objectKey })
+        });
+        const result = await parseJsonOrThrow(response);
+        if (response.ok && result.status === "success") {
+          return result.url;
+        } else {
+          return "#";
+        }
+      } catch (err) {
+        console.error(err);
+        return "#";
+      }
+    }
+    async function searchDocuments() {
+      const roleSelect = document.getElementById("roleSelect");
+      const userRole = roleSelect.value.toLowerCase();
+      const query = document.getElementById("query").value.trim();
+      const topK = Number(document.getElementById("topK").value);
+      if (!query) {
+        alert("Please enter a search query.");
+        return;
+      }
+      document.getElementById("searchSpinner").style.display = "block";
+      const container = document.getElementById("resultsContainer");
+      container.innerHTML = "";
+      const searchData = { query: query, top_k: topK };
+      try {
+        const response = await fetch(`${API_BASE_URL}/search_docs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(searchData)
+        });
+        const result = await parseJsonOrThrow(response);
+        document.getElementById("searchSpinner").style.display = "none";
+        if (response.ok && result.status === "success") {
+          const results = result.results || [];
+          container.innerHTML = `<p>Found ${results.length} result${results.length !== 1 ? "s" : ""}.</p>`;
+          if (results.length > 0) {
+            const classificationData = await loadClassificationData();
+            const groupedResults = {};
+            results.forEach(doc => {
+              const filename = doc.filename || "Unknown";
+              let summaryText = "No summary available.";
+              if (typeof doc.summary === "string") {
+                summaryText = doc.summary;
+              } else if (typeof doc.summary === "object" && doc.summary.answer) {
+                summaryText = doc.summary.answer;
+              }
+              const similarity = Number(doc.similarity) || 0;
+              if (!groupedResults[filename]) {
+                groupedResults[filename] = [];
+              }
+              groupedResults[filename].push({ filename, similarity, summary: summaryText });
+            });
+            const uniqueResults = [];
+            for (let filename in groupedResults) {
+              const docs = groupedResults[filename];
+              docs.sort((a, b) => b.similarity - a.similarity);
+              uniqueResults.push(docs[0]);
+            }
+            const inFavorResults = [];
+            const notInFavorResults = [];
+            uniqueResults.forEach(doc => {
+              const docWinner = classificationData[doc.filename] || "unknown";
+              if (docWinner === userRole) {
+                inFavorResults.push(doc);
+              } else {
+                notInFavorResults.push(doc);
+              }
+            });
+            const col1 = document.createElement("div");
+            col1.className = "column";
+            const col2 = document.createElement("div");
+            col2.className = "column";
+            let inFavorHTML = "<h3>In Favor</h3>";
+            if (inFavorResults.length > 0) {
+              for (const doc of inFavorResults) {
+                inFavorHTML += `
+                  <div class="result">
+                    <div class="tooltip">
+                      <p class="result-filename">${doc.filename}</p>
+                      <span class="tooltiptext">${doc.summary}</span>
+                    </div>
+                    <p>Similarity: ${doc.similarity}%</p>
+                    <p><a href="${await getPresignedUrl("documents/" + doc.filename)}" target="_blank">View Document</a></p>
+                  </div>
+                `;
+              }
+            } else {
+              inFavorHTML += "<p>No results in favor.</p>";
+            }
+            col1.innerHTML = inFavorHTML;
+            let notInFavorHTML = "<h3>Not In Favor</h3>";
+            if (notInFavorResults.length > 0) {
+              for (const doc of notInFavorResults) {
+                notInFavorHTML += `
+                  <div class="result">
+                    <div class="tooltip">
+                      <p class="result-filename">${doc.filename}</p>
+                      <span class="tooltiptext">${doc.summary}</span>
+                    </div>
+                    <p>Similarity: ${doc.similarity}%</p>
+                    <p><a href="${await getPresignedUrl("documents/" + doc.filename)}" target="_blank">View Document</a></p>
+                  </div>
+                `;
+              }
+            } else {
+              notInFavorHTML += "<p>No results not in favor.</p>";
+            }
+            col2.innerHTML = notInFavorHTML;
+            const resultsWrapper = document.createElement("div");
+            resultsWrapper.className = "clearfix";
+            resultsWrapper.appendChild(col1);
+            resultsWrapper.appendChild(col2);
+            container.appendChild(resultsWrapper);
+          }
+        } else {
+          alert("Search failed: " + (result.message || "Unknown error."));
+        }
+      } catch (err) {
+        document.getElementById("searchSpinner").style.display = "none";
+        console.error(err);
+        alert("Error during search: " + err.message);
+      }
+    }
+  </script>
+  <script>
+    async function handleLogout() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          credentials: "include"
+        });
+        if (response.ok) {
+          alert("Logged out successfully!");
+        } else {
+          console.error("Logout failed with status", response.status);
+        }
+      } catch (err) {
+        console.error("Error during logout:", err);
+      }
+      localStorage.removeItem("username");
+      localStorage.removeItem("user_id");
+      localStorage.removeItem("role");
+      window.location.href = "login.html";
+    }
+  </script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+    // If the user is not a lawyer, remove all lawyer-only nav items.
+    if (role !== "lawyer") {
+      document.querySelectorAll("a.lawyer-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+    // Similarly, if you need to remove client-only items for lawyers:
+    if (role === "lawyer") {
+      document.querySelectorAll("a.client-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LegalKare - Profile Reviews</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/main.js" defer></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #202A44;
+      color: #FFFFFF;
+    }
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 250px;
+      background: #001F3F;
+      color: #FFFFFF;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+      border-right: 2px solid #D4AF37;
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212, 175, 55, 0.2);
+    }
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6;
+      color: #333;
+    }
+    .content h1 {
+      font-size: 2.5rem;
+      color: #001F3F;
+      margin-bottom: 20px;
+    }
+    .reviews-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+      color: #333;
+    }
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #FFFFFF;
+      font-size: 0.9rem;
+      margin-top: 2rem;
+    }
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        text-align: center;
+        border-right: none;
+        border-bottom: 2px solid #D4AF37;
+      }
+      .main-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body onload="fetchReviews()">
+  <div class="container">
+    <aside class="sidebar">
+      <div class="logo-container">
+        <a href="index.html">
+          <img src="logo.png" alt="LegalKare Logo" class="logo">
+        </a>
+      </div>
+      <!-- Sidebar navigation will be built dynamically -->
+      <ul id="sidebarNav"></ul>
+    </aside>
+    <div class="main-content">
+      <div class="content">
+        <h1>Client Reviews</h1>
+        <div class="reviews-container">
+          <canvas id="ratingDistribution"></canvas>
+          <canvas id="ratingTrend"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    © 2025 LegalKare. All rights reserved.
+  </footer>
+
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:5002";
+
+    // Build the sidebar based on the user's role stored in localStorage.
+    document.addEventListener("DOMContentLoaded", () => {
+      const role = localStorage.getItem("role") ? localStorage.getItem("role").toLowerCase() : "";
+      const sidebarNav = document.getElementById("sidebarNav");
+      if (role === "lawyer") {
+        sidebarNav.innerHTML = `
+          <li><a href="home.html">Home</a></li>
+          <li><a href="profile.html">Profile</a></li>
+          <li><a href="upload_document.html">Upload Document</a></li>
+          <li><a href="documents.html">Documents</a></li>
+          <li><a href="appointments.html">Appointments</a></li>
+          <li><a href="notifications.html">Notifications</a></li>
+          <li><a href="teams.html">Teams</a></li>
+          <li><a href="judgement_search.html">Judgement Search</a></li>
+          <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+          <li><a href="profile_reviews.html">Profile Reviews</a></li>
+          <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+        `;
+      } else if (role === "client") {
+        sidebarNav.innerHTML = `
+          <li><a href="home.html">Home</a></li>
+          <li><a href="profile.html">Profile</a></li>
+          <li><a href="book_appointment.html">Book Appointment</a></li>
+          <li><a href="submit_review.html">Submit a review</a></li>
+          <li><a href="faqs.html">FAQs</a></li>
+          <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+        `;
+      }
+    });
+
+    async function fetchReviews() {
+      const lawyerId = localStorage.getItem("user_id");
+      try {
+        const response = await fetch(`${API_BASE_URL}/get_reviews/${lawyerId}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include"
+        });
+        const reviews = await response.json();
+        if (reviews.length) {
+          drawCharts(reviews);
+        } else {
+          console.log("No reviews to display.");
+        }
+      } catch (err) {
+        console.error("Error fetching reviews:", err);
+      }
+    }
+
+    function drawCharts(reviews) {
+      const ctxDist = document.getElementById('ratingDistribution').getContext('2d');
+      const ratings = reviews.map(review => review.rating);
+      const ratingCounts = ratings.reduce((acc, rating) => {
+        acc[rating] = (acc[rating] || 0) + 1;
+        return acc;
+      }, {});
+
+      new Chart(ctxDist, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(ratingCounts),
+          datasets: [{
+            label: 'Rating Frequency',
+            data: Object.values(ratingCounts),
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      const ctxTrend = document.getElementById('ratingTrend').getContext('2d');
+      // Create a list of unique dates (in ISO format) for the x-axis.
+      const dates = reviews.map(review => new Date(review.date).toISOString().slice(0, 10));
+      new Chart(ctxTrend, {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: [{
+            label: 'Rating Trend Over Time',
+            data: ratings,
+            fill: false,
+            borderColor: 'rgba(255, 99, 132, 1)',
+            tension: 0.1
+          }]
+        }
+      });
+    }
+
+    async function handleLogout() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          credentials: "include"
+        });
+        if (response.ok) {
+          localStorage.clear();
+          window.location.href = "login.html";
+        } else {
+          console.error("Logout failed with status", response.status);
+        }
+      } catch (err) {
+        console.error("Error during logout:", err);
+      }
+    }
+  </script>
+</body>
+</html>

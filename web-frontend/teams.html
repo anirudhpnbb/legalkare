@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LegalKare - Teams</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/main.js" defer></script>
+  <style>
+    /* Global Styles */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #202A44;
+      color: #fff;
+    }
+    .container {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: 250px;
+      background: #001F3F;
+      color: #fff;
+      padding: 20px;
+      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+      border-right: 2px solid #D4AF37;
+    }
+    .sidebar h2 {
+      font-size: 1.8rem;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin-bottom: 15px;
+    }
+    .sidebar ul li a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.1rem;
+      display: block;
+      padding: 10px;
+      border-radius: 5px;
+      transition: background 0.3s ease;
+    }
+    .sidebar ul li a:hover,
+    .sidebar ul li a.active {
+      background: rgba(212, 175, 55, 0.2);
+    }
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      padding: 40px;
+      background: #F0F2F6;
+      position: relative;
+      overflow: auto;
+      color: #333;
+    }
+    .content h1 {
+      font-size: 2.5rem;
+      color: #001F3F;
+      margin-bottom: 20px;
+    }
+    /* Teams List */
+    .teams-container {
+      background: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto 40px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      color: #333;
+    }
+    .team-item {
+      border: 1px solid #D4AF37;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      background: #fff;
+      color: #333;
+    }
+    .team-actions button {
+      padding: 8px 12px;
+      background: #001F3F;
+      color: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 5px;
+      transition: background 0.3s ease;
+    }
+    .team-actions button:hover {
+      background: #002855;
+    }
+    .team-members {
+      display: none;
+      padding-top: 10px;
+      border-top: 1px solid #D4AF37;
+    }
+    .team-members ul {
+      list-style: none;
+      padding: 0;
+    }
+    .team-members li {
+      padding: 5px 0;
+      display: flex;
+      align-items: center;
+    }
+    .profile-pic {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-right: 10px;
+    }
+    /* Create Team */
+    .create-team-container {
+      background: #fff;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      padding: 20px;
+      max-width: 600px;
+      margin: 40px auto;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      color: #333;
+    }
+    .create-team-container input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #D4AF37;
+      border-radius: 5px;
+      font-size: 1rem;
+      background: #F0F2F6;
+      color: #333;
+    }
+    .create-team-container button {
+      width: 100%;
+      padding: 10px;
+      background: #001F3F;
+      color: #fff;
+      border: 2px solid #D4AF37;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .create-team-container button:hover {
+      background: #002855;
+    }
+    /* Footer */
+    footer {
+      background: #001F3F;
+      border-top: 1px solid #D4AF37;
+      padding: 1rem;
+      text-align: center;
+      color: #fff;
+      font-size: 0.9rem;
+      margin-top: 2rem;
+    }
+    /* Responsive */
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        text-align: center;
+        border-right: none;
+        border-bottom: 2px solid #D4AF37;
+      }
+      .sidebar ul li {
+        margin-bottom: 10px;
+      }
+      .main-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body onload="loadTeams()">
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="logo-container">
+  <a href="index.html">
+    <img src="logo.png" alt="LegalKare Logo" class="logo">
+  </a>
+</div>
+      <ul>
+        <li><a href="home.html">Home</a></li>
+        <li><a href="profile.html">Profile</a></li>
+        <li><a href="upload_document.html" class="lawyer-only">Upload Document</a></li>
+        <li><a href="documents.html" class="lawyer-only">Documents</a></li>
+        <li><a href="appointments.html" class="lawyer-only">Appointments</a></li>
+        <li><a href="notifications.html" class="lawyer-only">Notifications</a></li>
+        <li><a href="teams.html" class="lawyer-only">Teams</a></li>
+        <li><a href="judgement_search.html" class="lawyer-only">Judgement Search</a></li>
+        <li><a href="court_documents.html" class="lawyer-only">Court Documents Generation</a></li>
+       <li><a href="profile_reviews.html" class="lawyer-only">Profile Reviews</a></li>
+        <li><a href="book_appointment.html" class="client-only">Book Appointment</a></li>
+        <li><a href="submit_review.html" class="client-only">Submit a review</a></li>
+        <li><a href="faqs.html" class="client-only">FAQs</a></li>
+         <li><a href="initiate_call.html" class="client-only">Online consultation</a></li>
+         <li><a href="lawyer_online_consultation.html" class="lawyer-only">Online consultation</a></li>
+        <li><a href="#" onclick="handleLogout(); return false;">Logout</a></li>
+      </ul>
+    </aside>
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="content">
+        <h1>My Teams</h1>
+        <div id="teamsList" class="teams-container">Loading teams...</div>
+
+        <h2>Create a New Team</h2>
+        <div class="create-team-container">
+          <form id="createTeamForm">
+            <label for="team_name">Team Name:</label>
+            <input type="text" id="team_name" name="team_name" placeholder="Enter team name" required />
+            <label for="member_user_ids">Member User IDs (comma separated):</label>
+            <input type="text" id="member_user_ids" name="member_user_ids" placeholder="e.g., UID0002,UID0003" />
+            <button type="submit">Create Team</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Load teams from the backend API
+    function loadTeams() {
+      fetch('http://127.0.0.1:5002/documents/get_teams', { credentials: 'include' })
+        .then(response => response.json())
+        .then(data => {
+          const teamsList = document.getElementById('teamsList');
+          if (data.status === 'success' && data.teams.length > 0) {
+            teamsList.innerHTML = data.teams.map(team => `
+              <div class="team-item" data-team-id="${team.team_id}">
+                <p><strong>${team.team_name}</strong> (ID: ${team.team_id})</p>
+                <div class="team-actions">
+                  <button onclick="toggleTeamMembers('${team.team_id}')">View Members</button>
+                  <button onclick="showAddMemberForm('${team.team_id}')">Add Member</button>
+                </div>
+                <div class="team-members" id="teamMembers-${team.team_id}"></div>
+              </div>
+            `).join('');
+          } else {
+            teamsList.innerHTML = '<p>No teams found.</p>';
+          }
+        })
+        .catch(error => console.error("Error fetching teams:", error));
+    }
+
+    // Toggle team members display
+    function toggleTeamMembers(teamId) {
+      const container = document.getElementById(`teamMembers-${teamId}`);
+      if (container.style.display === 'block') {
+        container.style.display = 'none';
+      } else {
+        // Fetch team members from API
+        fetch(`http://127.0.0.1:5002/documents/get_team_members?team_id=${teamId}`, { credentials: 'include' })
+          .then(response => response.json())
+          .then(data => {
+            if (data.status === 'success') {
+              // Build the members list with profile pictures (with crossorigin attribute)
+              container.innerHTML = `<ul>${
+                data.members.map(member => `
+                  <li>
+                    <img class="profile-pic" src="${member.profile_picture_url}" alt="${member.name}" crossorigin="anonymous">
+                    ${member.name} (${member.role} - ${member.specialization})
+                  </li>
+                `).join('')
+              }</ul>`;
+              container.style.display = 'block';
+            } else {
+              container.innerHTML = `<p>Error: ${data.message}</p>`;
+              container.style.display = 'block';
+            }
+          })
+          .catch(error => {
+            console.error("Error fetching team members:", error);
+            container.innerHTML = `<p>Error loading team members.</p>`;
+            container.style.display = 'block';
+          });
+      }
+    }
+
+    // Show a form to add a new team member for the specified team
+    function showAddMemberForm(teamId) {
+      const container = document.getElementById(`teamMembers-${teamId}`);
+      // Check if the add member form already exists
+      if (!document.getElementById(`addMemberForm-${teamId}`)) {
+        const formDiv = document.createElement('div');
+        formDiv.id = `addMemberForm-${teamId}`;
+        formDiv.style.marginTop = '10px';
+        formDiv.innerHTML = `
+          <form onsubmit="event.preventDefault(); addTeamMember('${teamId}');">
+            <input type="text" id="newMember-${teamId}" placeholder="Enter User ID" required style="padding: 8px; width: 70%; border: 1px solid #D4AF37; border-radius: 5px; margin-right: 5px;"/>
+            <button type="submit" style="padding: 8px 12px; background: #001F3F; color: #fff; border: 1px solid #D4AF37; border-radius: 5px;">Add</button>
+          </form>
+        `;
+        container.appendChild(formDiv);
+        container.style.display = 'block';
+      }
+    }
+
+    // Add a team member via the backend API
+    function addTeamMember(teamId) {
+      const newMemberInput = document.getElementById(`newMember-${teamId}`);
+      const memberUserId = newMemberInput.value.trim();
+      if (!memberUserId) {
+        alert("Please enter a valid User ID.");
+        return;
+      }
+      fetch('http://127.0.0.1:5002/documents/add_team_member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ team_id: teamId, member_user_id: memberUserId })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          alert("Member added successfully!");
+          // Refresh team members
+          toggleTeamMembers(teamId); // Hide current view
+          toggleTeamMembers(teamId); // Reload and show updated list
+        } else {
+          alert("Error adding member: " + data.message);
+        }
+      })
+      .catch(error => {
+        console.error("Error adding team member:", error);
+        alert("An error occurred while adding the team member.");
+      });
+    }
+
+    // Handle create team form submission
+    document.getElementById('createTeamForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const teamName = document.getElementById('team_name').value.trim();
+      const membersRaw = document.getElementById('member_user_ids').value;
+      const memberUserIds = membersRaw.split(',').map(id => id.trim()).filter(id => id !== "");
+      fetch('http://127.0.0.1:5002/documents/create_team', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ team_name: teamName, member_user_ids: memberUserIds })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === 'success') {
+          alert("Team created successfully!");
+          loadTeams();
+          document.getElementById('createTeamForm').reset();
+        } else {
+          alert("Error creating team: " + data.message);
+        }
+      })
+      .catch(error => {
+        console.error("Error creating team:", error);
+        alert("An error occurred while creating the team.");
+      });
+    });
+
+    // Placeholder logout function
+    function handleLogout() {
+      alert("Logout not implemented.");
+    }
+  </script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const role = localStorage.getItem("role") ? localStorage.getItem("role").trim().toLowerCase() : "";
+    // If the user is not a lawyer, remove all lawyer-only nav items.
+    if (role !== "lawyer") {
+      document.querySelectorAll("a.lawyer-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+    // Similarly, if you need to remove client-only items for lawyers:
+    if (role === "lawyer") {
+      document.querySelectorAll("a.client-only").forEach(link => {
+        link.parentElement.remove();
+      });
+    }
+  });
+</script>
+</body>
+</html>
