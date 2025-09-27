@@ -308,12 +308,16 @@ st.markdown(custom_css, unsafe_allow_html=True)
 
 def load_lottieurl(url: str):
     """
-    Load a Lottie animation from a URL.
+    Load a Lottie animation from a URL with error handling.
     """
-    r = requests.get(url)
-    if r.status_code != 200:
+    try:
+        r = requests.get(url, timeout=5)
+        if r.status_code != 200:
+            return None
+        return r.json()
+    except (requests.RequestException, requests.exceptions.ConnectionError):
+        # Return None if animation cannot be loaded (network issues, etc.)
         return None
-    return r.json()
 
 def fetch_data(endpoint, user_id):
     """ Helper function to fetch data from the Flask API """
@@ -461,6 +465,17 @@ def home_page():
     with col2:
         if lottie_animation:
             st_lottie(lottie_animation, height=300, key="hero_animation")
+        else:
+            # Fallback when animation cannot be loaded
+            st.markdown("""
+            <div style="height: 300px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; color: white; text-align: center;">
+                <div>
+                    <div style="font-size: 4rem; margin-bottom: 1rem;">⚖️</div>
+                    <h3>LegalKare</h3>
+                    <p>Your Legal Companion</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -523,7 +538,16 @@ def home_page():
     st.markdown('<div>', unsafe_allow_html=True)
     lottie_decor = load_lottieurl(
         "https://assets10.lottiefiles.com/packages/lf20_jcikwtux.json")  # Replace with another animation if desired
-    st_lottie(lottie_decor, height=200, key="decor_animation")
+    if lottie_decor:
+        st_lottie(lottie_decor, height=200, key="decor_animation")
+    else:
+        # Fallback decorative element
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border-radius: 16px; margin: 2rem 0;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">🏛️ ⚖️ 📚</div>
+            <h4>Empowering Legal Excellence</h4>
+        </div>
+        """, unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Register Section (Anchor)
