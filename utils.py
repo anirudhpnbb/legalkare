@@ -23,8 +23,15 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 model_name = os.getenv("OPENAI_MODEL_NAME")  # Ensure this model name is correct and available
 encryption_key = os.getenv("ENCRYPTION_KEY")  # Must be 32 url-safe base64-encoded bytes
 
+# Validate required environment variables
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY environment variable not set. Please set it in your .env file.")
+
+if not model_name:
+    raise ValueError("OPENAI_MODEL_NAME environment variable not set. Please set it in your .env file.")
+
 if not encryption_key:
-    raise ValueError("ENCRYPTION_KEY environment variable not set.")
+    raise ValueError("ENCRYPTION_KEY environment variable not set. Please set it in your .env file.")
 
 # Initialize Fernet for encryption and decryption
 fernet = Fernet(encryption_key.encode())

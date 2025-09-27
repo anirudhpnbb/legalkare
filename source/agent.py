@@ -20,8 +20,12 @@ edit_profile_url = "http://127.0.0.1:5002/profile/update_profile"
 load_dotenv()
 
 FLASK_API_URL = os.getenv("FLASK_API_URL", "http://127.0.0.1:5002/profile/view_appointments")
-openai_api_key = "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"
+openai_api_key = os.getenv("OPENAI_API_KEY")
 model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
+
+# Validate OpenAI API key
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is required. Please set it in your .env file.")
 
 class FetchAppointmentsInput(BaseModel):
     user_query: str = ""
@@ -426,10 +430,15 @@ def route_query(user_query: str, credentials: dict):
 # ✅ Example Usage
 if __name__ == "__main__":
     user_query = "What are my last 5 appointments?"
+    # Note: Replace these with actual credentials or load from environment
+    # Never hardcode credentials in production code
     credentials = {
-        "username": "anirudh_lawyer",  # Replace with your actual username
-        "password": "Ani@p1234."  # Replace with your actual password
+        "username": os.getenv("TEST_USERNAME", "your_username_here"),  
+        "password": os.getenv("TEST_PASSWORD", "your_password_here")  
     }
-
+    
+    if credentials["username"] == "your_username_here":
+        print("Warning: Using placeholder credentials. Set TEST_USERNAME and TEST_PASSWORD environment variables for testing.")
+    
     response = route_query(user_query=user_query, credentials=credentials)
     print(response)

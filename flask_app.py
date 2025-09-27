@@ -18,6 +18,35 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+import sys
+
+# Load environment variables
+load_dotenv()
+
+def validate_required_env_vars():
+    """Validate that required environment variables are set"""
+    required_vars = [
+        "SECRET_KEY_FLASK",
+        "MONGO_CLIENT", 
+        "COGNITO_CLIENT_ID",
+        "COGNITO_CLIENT_SECRET",
+        "S3_BUCKET_NAME",
+        "TWILIO_ACCOUNT_SID"
+    ]
+    
+    missing_vars = []
+    for var in required_vars:
+        if not os.getenv(var):
+            missing_vars.append(var)
+    
+    if missing_vars:
+        print(f"ERROR: Missing required environment variables: {', '.join(missing_vars)}")
+        print("Please check your .env file and ensure all required variables are set.")
+        print("See .env.template for reference.")
+        sys.exit(1)
+
+# Validate environment variables on startup
+validate_required_env_vars()
 from source.main import *
 from source.llm_process import llm_process
 from source.llm_summarizer import llm_summariser
@@ -33,8 +62,6 @@ import stripe
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 
 # ============================================
 # Define the required variables
@@ -57,10 +84,10 @@ S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 ses_region_name = os.getenv("AWS_SES_REGION")
 ses_access_key_id = os.getenv("AWS_SES_ACCESS_KEY_ID")
 ses_secret_access_key = os.getenv("AWS_SES_SECRET_ACCESS_KEY")
-AWS_SES_SOURCE_EMAIL = "anirudhpalaparthi@legalkare.com"
-client = boto3.client('cognito-idp', region_name='ap-south-1')
-CLIENT_ID = '1dqp62r33cu2kju8g93dohh4o5'
-CLIENT_SECRET = '59paljt3ut71l3e829272de2rmle6ko06hfgm3vcsv6mpvbj5gj'
+AWS_SES_SOURCE_EMAIL = os.getenv("AWS_SES_SOURCE_EMAIL")
+client = boto3.client('cognito-idp', region_name=region_name)
+CLIENT_ID = os.getenv("COGNITO_CLIENT_ID")
+CLIENT_SECRET = os.getenv("COGNITO_CLIENT_SECRET")
 s3_client = boto3.client('s3', region_name=region_name, aws_access_key_id=aws_access_key_id,
                          aws_secret_access_key=aws_secret_access_key)
 ses_client = boto3.client(
@@ -70,9 +97,9 @@ ses_client = boto3.client(
     aws_secret_access_key=ses_secret_access_key
 )
 
-TWILIO_ACCOUNT_SID = "ACeef16be78c5f2620cb378c55c57d3cce"
-TWILIO_API_KEY_SID = "SKcaac9310aa926d9ff27f067f90349508"
-TWILIO_API_KEY_SECRET = "S6ntzZrWr8n5wUtDg0KJGj9z0vahWtYT"
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_API_KEY_SID = os.getenv("TWILIO_API_KEY_SID")
+TWILIO_API_KEY_SECRET = os.getenv("TWILIO_API_KEY_SECRET")
 
 # Initialize Flask app
 app = Flask(__name__)
