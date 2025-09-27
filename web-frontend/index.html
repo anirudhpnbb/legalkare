@@ -1,85 +1,195 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>LegalKare - Home</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LegalKare - Your Personal Legal Assistant</title>
+  <link rel="stylesheet" href="css/style.css">
   <script src="js/main.js" defer></script>
+  <!-- Lottie Animation Player -->
+  <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body onload="loadHome()">
-  <!-- Background Illustration -->
-  <div class="bg-illustration">
-    <img src="images/illustration.svg" alt="Illustration" />
+<body>
+  <!-- Floating Particles Background -->
+  <div class="particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
   </div>
-  <!-- Header & Navigation (public pages: Home, About, Services, Blog, Login, Register) -->
+
+  <!-- Enhanced Navigation Header -->
   <header>
-    <div class="container navbar">
+    <nav class="navbar" id="navbar">
       <div class="logo-container">
-  <a href="index.html">
-    <img src="logo.png" alt="LegalKare Logo" class="logo">
-  </a>
-</div>
-      <nav>
-        <ul>
-          <li><a href="index.html" class="active">Home</a></li>
-          <li><a href="about.html">About</a></li>
-          <li><a href="services.html">Services</a></li>
-          <li><a href="blog.html">Blog</a></li>
-          <li><a href="login.html">Login</a></li>
-          <li><a href="register.html">Register</a></li>
-        </ul>
-      </nav>
-    </div>
+        <a href="index.html">
+          <img src="logo.png" alt="LegalKare Logo" class="logo">
+        </a>
+      </div>
+      
+      <!-- Mobile Menu Toggle -->
+      <div class="mobile-menu-toggle" id="mobileMenuToggle">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      
+      <ul id="navMenu">
+        <li><a href="index.html" class="active">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="services.html">Services</a></li>
+        <li><a href="blog.html">Blog</a></li>
+        <li><a href="login.html">Login</a></li>
+        <li><a href="register.html">Register</a></li>
+      </ul>
+    </nav>
   </header>
-  <!-- Hero Section -->
+
+  <!-- Hero Section with Enhanced Design -->
   <section class="hero">
-    <div class="hero-text">
-      <h1>Welcome to LegalKare</h1>
-      <p>Your trusted platform for legal services, document management, consultations, and more.</p>
-      <a href="#features" class="btn">Learn More</a>
-      <a href="register.html" class="btn">Get Started</a>
-    </div>
-    <!-- Optionally include an animated graphic (for example, via a Lottie animation embedded by JS) -->
-  </section>
-  <!-- Features Section -->
-  <section class="container features" id="features">
-    <h2>Key Features</h2>
-    <div class="feature-grid">
-      <div class="feature">
-        <img src="https://img.icons8.com/ios-filled/100/1e88e5/user.png" alt="User Registration">
-        <h3>User Authentication</h3>
-        <p>Secure login, registration, and profile management.</p>
+    <div class="container">
+      <div class="hero-text reveal">
+        <h1 class="text-shimmer">Welcome to LegalKare</h1>
+        <p>Your intelligent personal legal assistant powered by AI. Experience seamless legal document management, expert consultations, and comprehensive legal services—all in one sophisticated platform.</p>
+        <div class="hero-buttons">
+          <a href="#features" class="btn">Discover Features</a>
+          <a href="register.html" class="btn secondary">Get Started Today</a>
+        </div>
       </div>
-      <div class="feature">
-        <img src="https://img.icons8.com/ios-filled/100/1e88e5/upload.png" alt="Document Upload">
-        <h3>Document Management</h3>
-        <p>Upload, organize, and annotate legal documents.</p>
-      </div>
-      <div class="feature">
-        <img src="https://img.icons8.com/ios-filled/100/1e88e5/chat.png" alt="Chat">
-        <h3>AI Chat & Judgement Search</h3>
-        <p>Interact with our legal assistant and search documents effortlessly.</p>
-      </div>
-      <div class="feature">
-        <img src="https://img.icons8.com/ios-filled/100/1e88e5/calendar.png" alt="Appointments">
-        <h3>Appointment Booking</h3>
-        <p>Schedule consultations with top legal experts.</p>
-      </div>
-      <div class="feature">
-        <img src="https://img.icons8.com/ios-filled/100/1e88e5/user.png" alt="Teams">
-        <h3>Team Management</h3>
-        <p>Create and manage teams for collaborative legal work.</p>
-      </div>
-      <div class="feature">
-        <img src="https://img.icons8.com/ios-filled/100/1e88e5/document.png" alt="Court Docs">
-        <h3>Court Document Generation</h3>
-        <p>Generate court documents using customizable templates.</p>
+      
+      <!-- Animated Legal Scales -->
+      <div class="hero-animation reveal">
+        <lottie-player
+          src="https://assets4.lottiefiles.com/packages/lf20_8rtrxyfz.json"
+          background="transparent"
+          speed="0.8"
+          style="width: 400px; height: 400px;"
+          loop
+          autoplay>
+        </lottie-player>
       </div>
     </div>
   </section>
-  <!-- Footer -->
+
+  <!-- Enhanced Features Section -->
+  <section class="features" id="features">
+    <div class="container">
+      <h2 class="reveal">Comprehensive Legal Solutions</h2>
+      <div class="feature-grid">
+        <div class="feature reveal glow-effect">
+          <i class="fas fa-shield-alt fa-3x" style="color: var(--accent-gold); margin-bottom: 1.5rem;"></i>
+          <h3>Secure Authentication</h3>
+          <p>Military-grade security with advanced encryption and multi-factor authentication to protect your sensitive legal information.</p>
+        </div>
+        
+        <div class="feature reveal glow-effect">
+          <i class="fas fa-file-contract fa-3x" style="color: var(--accent-gold); margin-bottom: 1.5rem;"></i>
+          <h3>Smart Document Management</h3>
+          <p>AI-powered document organization, search, and analysis. Upload, categorize, and retrieve legal documents with intelligent tagging.</p>
+        </div>
+        
+        <div class="feature reveal glow-effect">
+          <i class="fas fa-calendar-check fa-3x" style="color: var(--accent-gold); margin-bottom: 1.5rem;"></i>
+          <h3>Expert Consultations</h3>
+          <p>Schedule video consultations with verified legal experts. Real-time collaboration tools and secure communication channels.</p>
+        </div>
+        
+        <div class="feature reveal glow-effect">
+          <i class="fas fa-users fa-3x" style="color: var(--accent-gold); margin-bottom: 1.5rem;"></i>
+          <h3>Team Collaboration</h3>
+          <p>Create and manage legal teams with role-based access control. Share documents and collaborate on cases seamlessly.</p>
+        </div>
+        
+        <div class="feature reveal glow-effect">
+          <i class="fas fa-robot fa-3x ai-assistant-icon" style="color: var(--accent-gold); margin-bottom: 1.5rem;"></i>
+          <h3>AI Legal Assistant</h3>
+          <p>Advanced AI chatbot trained on legal databases. Get instant answers, case research, and document analysis 24/7.</p>
+        </div>
+        
+        <div class="feature reveal glow-effect">
+          <i class="fas fa-balance-scale fa-3x legal-scales" style="color: var(--accent-gold); margin-bottom: 1.5rem;"></i>
+          <h3>Court Document Generation</h3>
+          <p>Generate professional court documents using customizable templates. Automated formatting and legal compliance checks.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call to Action Section -->
+  <section class="cta-section" style="background: linear-gradient(135deg, rgba(26, 35, 50, 0.9), rgba(44, 62, 80, 0.9)); padding: 80px 0; text-align: center;">
+    <div class="container">
+      <div class="reveal">
+        <h2 style="font-family: 'Playfair Display', serif; font-size: 2.5rem; margin-bottom: 1.5rem; color: var(--text-white);">Ready to Transform Your Legal Practice?</h2>
+        <p style="font-size: 1.2rem; color: var(--text-gray); margin-bottom: 2.5rem; max-width: 600px; margin-left: auto; margin-right: auto;">Join thousands of legal professionals who trust LegalKare for their document management and client collaboration needs.</p>
+        <a href="register.html" class="btn" style="font-size: 1.1rem; padding: 18px 40px;">Start Your Free Trial</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Enhanced Footer -->
   <footer>
-    © 2025 LegalKare. All rights reserved.
+    <div class="container">
+      <p>&copy; 2025 LegalKare. All rights reserved. | Revolutionizing Legal Services with AI</p>
+    </div>
   </footer>
+
+  <!-- Custom JavaScript for Animations -->
+  <script>
+    // Navbar scroll effect
+    window.addEventListener('scroll', () => {
+      const navbar = document.getElementById('navbar');
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    });
+
+    // Mobile menu toggle
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const navMenu = document.getElementById('navMenu');
+    
+    mobileMenuToggle.addEventListener('click', () => {
+      mobileMenuToggle.classList.toggle('active');
+      navMenu.classList.toggle('active');
+    });
+
+    // Scroll reveal animation
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('active');
+        }
+      });
+    }, observerOptions);
+
+    document.querySelectorAll('.reveal').forEach(el => {
+      observer.observe(el);
+    });
+
+    // Add smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        target.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      });
+    });
+  </script>
 </body>
 </html>

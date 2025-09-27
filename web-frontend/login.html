@@ -2,32 +2,138 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LegalKare - Login</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- Use the defer attribute to ensure the script runs after the DOM is loaded -->
   <script src="js/main.js" defer></script>
-  <style>
-    /* Remove full-page flex centering so header and footer remain in place */
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #202A44;
-    }
-    /* The header and footer styling are taken from your main style.css */
+  <!-- Font Awesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <!-- Floating Particles Background -->
+  <div class="particles">
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+  </div>
 
-    /* Center the login container on the page */
-    .login-container {
-      background: #001F3F;
-      padding: 2rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      width: 300px;
-      text-align: center;
-      margin: 100px auto; /* Centers the container horizontally and adds vertical spacing */
-    }
-    .login-container h2 {
-      margin-bottom: 1rem;
-    }
+  <!-- Enhanced Navigation Header -->
+  <header>
+    <nav class="navbar" id="navbar">
+      <div class="logo-container">
+        <a href="index.html">
+          <img src="logo.png" alt="LegalKare Logo" class="logo">
+        </a>
+      </div>
+      
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="services.html">Services</a></li>
+        <li><a href="blog.html">Blog</a></li>
+        <li><a href="login.html" class="active">Login</a></li>
+        <li><a href="register.html">Register</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Enhanced Login Section -->
+  <section style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 120px 20px 80px;">
+    <div class="form-container reveal">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <i class="fas fa-user-shield fa-3x" style="color: var(--accent-gold); margin-bottom: 1rem;"></i>
+        <h2>Welcome Back</h2>
+        <p style="color: var(--text-gray); font-size: 1rem;">Sign in to access your legal workspace</p>
+      </div>
+
+      <form id="loginForm">
+        <div style="position: relative; margin-bottom: 1.5rem;">
+          <i class="fas fa-envelope" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--accent-gold);"></i>
+          <input type="email" id="email" name="email" placeholder="Email Address" required style="padding-left: 45px;">
+        </div>
+        
+        <div style="position: relative; margin-bottom: 1.5rem;">
+          <i class="fas fa-lock" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--accent-gold);"></i>
+          <input type="password" id="password" name="password" placeholder="Password" required style="padding-left: 45px;">
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+          <label style="display: flex; align-items: center; font-size: 0.9rem; color: var(--text-gray);">
+            <input type="checkbox" id="remember" style="margin-right: 8px;">
+            Remember me
+          </label>
+          <a href="#" style="color: var(--accent-gold); font-size: 0.9rem; text-decoration: none;">Forgot Password?</a>
+        </div>
+
+        <button type="submit" class="btn" style="width: 100%; margin: 0; padding: 15px;">
+          <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i>
+          Sign In
+        </button>
+      </form>
+
+      <div style="text-align: center; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+        <p style="color: var(--text-gray); margin-bottom: 1rem;">Don't have an account?</p>
+        <a href="register.html" class="btn secondary" style="text-decoration: none;">
+          <i class="fas fa-user-plus" style="margin-right: 8px;"></i>
+          Create Account
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Enhanced Footer -->
+  <footer>
+    <div class="container">
+      <p>&copy; 2025 LegalKare. All rights reserved. | Secure Legal Services Platform</p>
+    </div>
+  </footer>
+
+  <script>
+    // Add reveal animation on load
+    document.addEventListener('DOMContentLoaded', () => {
+      const formContainer = document.querySelector('.reveal');
+      setTimeout(() => {
+        formContainer.classList.add('active');
+      }, 100);
+    });
+
+    // Enhanced form validation
+    const loginForm = document.getElementById('loginForm');
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      
+      if (!email || !password) {
+        alert('Please fill in all fields');
+        return;
+      }
+      
+      // Add loading state
+      const submitButton = loginForm.querySelector('button[type="submit"]');
+      const originalText = submitButton.innerHTML;
+      submitButton.innerHTML = '<div class="loading-spinner" style="width: 20px; height: 20px; margin: 0 auto;"></div>';
+      submitButton.disabled = true;
+      
+      // Simulate API call delay
+      setTimeout(() => {
+        submitButton.innerHTML = originalText;
+        submitButton.disabled = false;
+        
+        // Call the existing handleLogin function from main.js
+        handleLogin(e);
+      }, 1000);
+    });
+  </script>
+</body>
+</html>
     .login-container form {
       display: flex;
       flex-direction: column;
