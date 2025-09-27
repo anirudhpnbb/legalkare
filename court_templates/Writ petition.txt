@@ -1,0 +1,64 @@
+IN THE HIGH COURT OF {HIGH_COURT_LOCATION}
+(ORIGINAL JURISDICTION)
+
+W.P. No. {wp_number} of {wp_year}
+
+BETWEEN
+
+Ms. {petitioner_name},
+Aged {petitioner_age} years,
+Residing at: {petitioner_address_line1},
+{petitioner_address_line2},
+{petitioner_district},
+{petitioner_state} – {petitioner_pincode}
+                                                         ... PETITIONER
+
+AND
+
+1. The State of {respondent_state_name},
+   Department of Law,
+   Ground Floor, Vidhana Soudha,
+   {respondent_state_capital} – 560001
+   Through the Principal Secretary
+
+2. The Health Officer / Registrar of Birth & Death Certificate,
+   {municipal_authority_name},
+   {municipal_address_line},
+   {municipal_city} – {municipal_pincode}
+                                                         ... RESPONDENTS
+
+
+MEMORANDUM OF WRIT PETITION UNDER ARTICLE 226 OF THE CONSTITUTION OF INDIA
+
+The Petitioner respectfully submits as follows:
+
+1. **Introduction & Challenge:**
+   {Introduction}
+
+2. **Petitioner’s Background:**
+   - {Background}
+
+   (Relevant documents—birth certificate, educational certificates, etc.—are annexed as **Annexures**.)
+
+3. **Additional Details:**
+   - {Additional Details}
+
+4. **Grounds:**
+   - **Ground I:** {Ground I}
+   - **Ground II:** {Ground II}
+   - **Ground III:** {Ground III}
+
+10. **Prayer:**
+   {Prayer}
+
+Place: {filing_city}
+Date: {filing_date}
+
+                                                         Counsel for the Petitioner
+                                                         {advocate_name}
+Address for Service:
+{advocate_office_address_line1}
+{advocate_office_address_line2}
+{advocate_city} – {advocate_pincode}
+Phone: {advocate_phone}
+

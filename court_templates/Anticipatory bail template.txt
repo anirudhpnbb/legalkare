@@ -1,0 +1,43 @@
+In the High Court of Judicature of Madras
+
+(Criminal Original Jurisdiction)
+
+Crl.O.P.No. of {year}
+In
+Crime.No. {crime_number} of {year}
+
+(On the file of the Inspector of Police. {police_station}, Guindy, Chennai)
+
+Mr.{petitioner_name}					       …petitioner/Accused
+Versus
+State of Tamil Nadu,
+Rep. by its Inspector of Police,
+{respondent_police_station},
+Guindy, Chennai,
+Crime.No. {crime_number} of {year}		            …Respondent/Complainant
+
+Petition for Anticipatory Bail filed under section 438 of cr.p.c
+
+The petitioner states as follows:
+
+1. The petitioner apprehends arrest at the hands of the Respondent Police for the alleged offences punishable under Sec. {section_number}, {ipc_section} of IPC.
+
+2. The address for service of all processes and notices on the petitioner is that of his counsel M/S. {counsel_name}, advocate, {counsel_address}.
+
+3. The address for service of all processes and notices on the Respondent is as set out in the cause title above.
+
+4. {fact_statement}
+
+5. It is submitted that {complaint_details}.
+
+6. It is submitted that the petitioner apprehends arrest by the Respondent Police on the basis of the complaint taken on file (Crime No. {crime_number}). The petitioner is the only son to take care of his parents. The petitioner is innocent and has not committed any offence. {accusation_details}.
+
+It is, therefore, prayed that this Hon`ble Court may be pleased to enlarge the petitioner on bail in the event of his arrest by the Respondent Police (Crime No. {crime_number}) as this Hon`ble Court may deem fit and proper in the facts and circumstances of the case and render justice.
+
+Dated at {location} on this the {date_day}th day of {date_month} {date_year}.
+
+Counsel for Petitioner
+
+Note:
+This is the first application by the petitioner.
+Bail to the satisfaction of the {magistrate_name}.
