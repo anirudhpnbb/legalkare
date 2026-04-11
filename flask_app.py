@@ -27,8 +27,9 @@ import logging
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VideoGrant
 from flask import Flask, request, jsonify
+import stripe
 
-
+# TODO: Convert the following flask app into django microservice architecture.
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ profile_bp = Blueprint('profile_bp', __name__)
 documents_bp = Blueprint('documents', __name__)
 prompts_bp = Blueprint('prompts_bp', __name__)
 lawyers_bp = Blueprint('lawyers_bp', __name__)
+whatsapp_bp = Blueprint("whatsapp_bp", __name__)
 
 
 
@@ -2338,6 +2340,174 @@ def respond_consultation():
             "token": token_str,
             "room_name": room_name
         }), 200
+    
+# # -----------------------------------------------------------------------------
+# # Whatsapp agent for one time requests
+# # -----------------------------------------------------------------------------
+# stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "YOUR_STRIPE_SECRET_KEY")
+
+# # A dictionary mapping each "feature" to its price (in cents)
+# FEATURE_PRICING = {
+#     "BOOK_APPOINTMENT": 500,  # e.g., $5.00
+#     "FEATURE_X": 1200,        # e.g., $12.00
+#     # ...
+# }
+
+# # Store user’s pending “feature usage” in a simple dict for demo
+# # In production, store in DB with a status ("pending_payment", "paid", etc.)
+# PENDING_PURCHASES = {}
+# # Format: PENDING_PURCHASES[phone_number] = {
+# #     "feature": "BOOK_APPOINTMENT",
+# #     "price_cents": 500,
+# #     "timestamp": <some datetime>,
+# #     ...
+# # }
+# @whatsapp_bp.route("/webhook", methods=["POST"])
+# def whatsapp_webhook():
+#     """
+#     Webhook to handle incoming WhatsApp messages from Twilio.
+#     Configure your Twilio WhatsApp Sandbox or phone number to POST here.
+#     """
+#     from_number = request.form.get("From", "")
+#     incoming_msg = (request.form.get("Body") or "").strip().lower()
+
+#     resp = MessagingResponse()
+#     outgoing_msg = resp.message()
+
+#     # Basic logic to parse the user's request
+#     if "hello" in incoming_msg or "hi" in incoming_msg:
+#         # Greet user
+#         outgoing_msg.body(
+#             "Hello! I’m your LegalKare WhatsApp assistant.\n\n"
+#             "Here are some commands you can try:\n"
+#             "1) Type 'Book Appointment' to schedule a meeting with a lawyer.\n"
+#             "2) Type 'Feature X' to access some special feature.\n"
+#             "3) Type 'Help' to see this menu again."
+#         )
+#         return str(resp)
+
+#     elif "help" in incoming_msg:
+#         outgoing_msg.body(
+#             "Commands:\n"
+#             "• 'Book Appointment' => We'll guide you to pay & then schedule an appointment.\n"
+#             "• 'Feature X' => We'll guide you to pay & then unlock it.\n"
+#         )
+#         return str(resp)
+
+#     elif "book appointment" in incoming_msg:
+#         # Save a pending purchase for this user
+#         feature = "BOOK_APPOINTMENT"
+#         price_cents = FEATURE_PRICING.get(feature, 500)
+#         PENDING_PURCHASES[from_number] = {
+#             "feature": feature,
+#             "price_cents": price_cents,
+#             "timestamp": datetime.datetime.utcnow()
+#         }
+#         # Send payment link
+#         outgoing_msg.body(
+#             "To proceed with booking an appointment, please pay the required fee.\n"
+#             f"Price: ${price_cents/100:.2f}\n\n"
+#             "Reply 'Pay' and we’ll generate a payment link for you."
+#         )
+#         return str(resp)
+
+#     elif "feature x" in incoming_msg:
+#         # Another example feature
+#         feature = "FEATURE_X"
+#         price_cents = FEATURE_PRICING.get(feature, 1200)
+#         PENDING_PURCHASES[from_number] = {
+#             "feature": feature,
+#             "price_cents": price_cents,
+#             "timestamp": datetime.datetime.utcnow()
+#         }
+#         outgoing_msg.body(
+#             "Feature X costs $12.00. Reply 'Pay' to get the payment link."
+#         )
+#         return str(resp)
+
+#     elif incoming_msg == "pay":
+#         # Generate payment link if there's a pending purchase
+#         pending = PENDING_PURCHASES.get(from_number)
+#         if not pending:
+#             outgoing_msg.body(
+#                 "No pending feature found. Type 'Help' to see available commands."
+#             )
+#             return str(resp)
+
+#         # Create a Stripe Checkout Session
+#         session = stripe.checkout.Session.create(
+#             payment_method_types=['card'],
+#             mode='payment',
+#             line_items=[{
+#                 'price_data': {
+#                     'currency': 'usd',
+#                     'product_data': {
+#                         'name': pending["feature"],
+#                     },
+#                     'unit_amount': pending["price_cents"],
+#                 },
+#                 'quantity': 1,
+#             }],
+#             success_url=os.getenv("PAYMENT_SUCCESS_URL", "https://example.com/payment_success") 
+#                         + f"?phone={from_number}",
+#             cancel_url=os.getenv("PAYMENT_CANCEL_URL", "https://example.com/payment_cancel")
+#         )
+#         checkout_url = session.url
+#         outgoing_msg.body(
+#             "Click here to pay:\n"
+#             f"{checkout_url}\n\n"
+#             "After payment, you’ll receive instructions automatically."
+#         )
+#         return str(resp)
+
+#     else:
+#         # Unrecognized message
+#         outgoing_msg.body(
+#             "Sorry, I didn’t understand that.\n"
+#             "Type 'Help' to see available commands."
+#         )
+#         return str(resp)
+
+
+# # ---------------- Stripe Payment Success Webhook or Route -------------
+# @whatsapp_bp.route("/payment_success", methods=["GET"])
+# def payment_success():
+#     """
+#     This route is called after Stripe's checkout success. 
+#     You’d configure your success_url to point here with the user’s phone. 
+#     Example: success_url?phone=whatsapp:+123456789
+#     """
+#     from_number = request.args.get("phone", "")
+
+#     # Mark the pending purchase as "paid" and proceed with the feature
+#     pending = PENDING_PURCHASES.get(from_number)
+#     if not pending:
+#         return "No pending purchase was found. Possibly already processed."
+
+#     feature = pending["feature"]
+
+#     # ---- Here, you can finalize the logic:
+#     # e.g., if feature == 'BOOK_APPOINTMENT': 
+#     #       create an appointment entry in DB for the user
+#     # Or you can store them in some "paid" table, etc.
+
+#     # For demonstration, if it’s "BOOK_APPOINTMENT", call your existing logic
+#     if feature == "BOOK_APPOINTMENT":
+#         # Example: create an appointment “placeholder” in DB
+#         # (Use your actual DB calls from your existing code.)
+#         # appointments_collection.insert_one(...)
+#         # Or simply record somewhere that the user can next send 
+#         # "I want to meet on date/time" via WhatsApp, etc.
+#         pass
+
+#     # Remove from pending
+#     del PENDING_PURCHASES[from_number]
+
+#     return (
+#         "Payment received! Thank you.\n\n"
+#         f"We have unlocked feature: {feature}.\n"
+#         "You can close this tab and continue on WhatsApp now."
+#     ), 200
 
 app.register_blueprint(profile_bp, url_prefix="/profile")
 app.register_blueprint(documents_bp, url_prefix="/documents")

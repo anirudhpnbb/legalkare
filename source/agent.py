@@ -11,6 +11,7 @@ from langchain.tools.base import BaseTool
 import inspect
 import sys
 import json
+import re
 
 login_url = "http://127.0.0.1:5002/login"  # Login endpoint
 profile_url = "http://127.0.0.1:5002/profile/get_profile"  # Profile endpoint
@@ -23,35 +24,40 @@ openai_api_key = "sk-proj-dE3RpIUTGiWQVvQZ8it08KjwZvCB0vgemTy_hVjFSA8BPCOuSGN9DD
 model_name = os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
 
 class FetchAppointmentsInput(BaseModel):
-    user_query: str
+    user_query: str = ""
     credentials: Dict[str, str]
 
-    @root_validator(pre=True)
-    def parse_input(cls, values):
-        if isinstance(values, dict):
-            return values
+    @model_validator(mode="before")
+    def coerce_credentials(cls, values: any) -> Dict[str, any]:
+        # If LangChain passed us a raw string, extract the JSON object
         if isinstance(values, str):
-            s = values.strip()
-            if s.startswith("{"):
+            m = re.search(r"(\{.*\})", values, flags=re.DOTALL)
+            if not m:
+                raise ValueError(f"Couldn't extract JSON from: {values!r}")
+            payload = m.group(1)
+            try:
+                values = json.loads(payload)
+            except json.JSONDecodeError:
                 try:
-                    import ast
-                    return ast.literal_eval(s)
-                except Exception as e:
-                    raise ValueError("Error parsing input string as dict") from e
-            elif s.startswith("FetchAppointmentsInput(") or s.startswith("__main__.FetchAppointmentsInput("):
-                import re
-                pattern = r"^(?:__main__\.)?FetchAppointmentsInput\(\s*username\s*=\s*['\"]([^'\"]+)['\"]\s*,\s*password\s*=\s*['\"]([^'\"]+)['\"]\s*\)$"
-                match = re.match(pattern, s)
-                if match:
-                    username = match.group(1)
-                    password = match.group(2)
-                    return {"user_query": "", "credentials": {"username": username, "password": password}}
-                else:
-                    raise ValueError("Error parsing input string from model representation")
-            else:
-                raise ValueError("Input string format not recognized")
-        raise ValueError("Input must be a dict or string representing a dict")
+                    values = ast.literal_eval(payload)
+                except Exception:
+                    raise ValueError(f"Couldn't parse JSON payload: {payload!r}")
 
+        # Now ensure we have a dict and coerce top‐level creds → nested
+        if isinstance(values, dict):
+            if "username" in values and "password" in values:
+                return {
+                    "user_query": values.get("user_query", ""),
+                    "credentials": {
+                        "username": values["username"],
+                        "password": values["password"],
+                    },
+                }
+            creds = values.get("credentials")
+            if isinstance(creds, dict) and creds.get("username") and creds.get("password"):
+                return {"user_query": values.get("user_query", ""), "credentials": creds}
+
+        raise ValueError("Invalid input: expected top-level username/password or a credentials dict")
 
 
 # Define a Pydantic model for the profile fetching inputs
@@ -419,7 +425,7 @@ def route_query(user_query: str, credentials: dict):
 
 # ✅ Example Usage
 if __name__ == "__main__":
-    user_query = "Can you change my name from Anirudh to ANIRUDH?"
+    user_query = "What are my last 5 appointments?"
     credentials = {
         "username": "anirudh_lawyer",  # Replace with your actual username
         "password": "Ani@p1234."  # Replace with your actual password

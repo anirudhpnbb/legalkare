@@ -1,14 +1,2 @@
-boto3~=1.35.87
-streamlit~=1.41.1
-requests~=2.32.3
-numpy~=1.26.4
-faiss-cpu~=1.9.0.post1
-sentence-transformers~=3.3.1
-python-dotenv~=1.0.1
-flask~=3.1.0
-botocore~=1.35.87
-Flask-Cors~=5.0.0
-langchain-openai~=0.2.12
-langchain-core~=0.3.25
-flask_session~=0.8.0
-PyMuPDF~=1.25.1
+packaging==24.2
+wheel @ file:///opt/homebrew/Cellar/python%403.12/3.12.8/libexec/wheel-0.45.1-py3-none-any.whl#sha256=ff30fbe2536d325272e73cd91fbfbda0f3ea73559a5c26e22e9f5b65429fa0b9
